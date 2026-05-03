@@ -1,0 +1,35 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Woodside",
+        "state": "California",
+        "note": "PLACEHOLDER — Replace with accurate boundary from US Census TIGER/Line 2023, PLACEFP=85922. See README for instructions."
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-122.2850, 37.4680],
+            [-122.2650, 37.4700],
+            [-122.2450, 37.4690],
+            [-122.2250, 37.4600],
+            [-122.2150, 37.4480],
+            [-122.2150, 37.4320],
+            [-122.2220, 37.4180],
+            [-122.2380, 37.4060],
+            [-122.2550, 37.3990],
+            [-122.2700, 37.4010],
+            [-122.2830, 37.4100],
+            [-122.2920, 37.4230],
+            [-122.2950, 37.4380],
+            [-122.2920, 37.4530],
+            [-122.2850, 37.4680]
+          ]
+        ]
+      }
+    }
+  ]
+}
