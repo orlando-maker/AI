@@ -1,0 +1,103 @@
+# ============================================================
+# DCC Train Layout Configuration
+# All distances are in MILLIMETERS (mm)
+# Fill this in once your layout is finalized
+# ============================================================
+
+cs3_plus:
+  # IP address of your Märklin CS3+ on your home network
+  # Find it in CS3+ Menu > Settings > Network
+  ip: "192.168.1.100"
+  port: 80
+
+# ── TRAINS ──────────────────────────────────────────────────
+# DCC addresses: start from 1, skip 3 (factory default — always reprogram locos away from 3)
+trains:
+  - id: "train_1"
+    name: "ICE Express"
+    dcc_address: 1
+    length_mm: 450          # physical length of the consist in mm
+    max_speed_step: 80      # out of 128 DCC speed steps
+    decel_distance_mm: 300  # how far ahead of stop point to start braking
+
+  - id: "train_2"
+    name: "Regional Freight"
+    dcc_address: 2
+    length_mm: 320
+    max_speed_step: 60
+    decel_distance_mm: 250
+
+  - id: "train_4"
+    name: "Passenger Local"
+    dcc_address: 4
+    length_mm: 380
+    max_speed_step: 70
+    decel_distance_mm: 280
+
+# ── LAYOUT BLOCKS ────────────────────────────────────────────
+# A block is any section of track that can be independently detected.
+# Each block should have an s88 sensor (or similar) wired to your CS3+.
+# s88_address: the feedback address on your s88 module (1-based)
+blocks:
+  - id: "block_A"
+    name: "Main Station Platform 1"
+    length_mm: 600
+    is_station: true
+    platform_length_mm: 550
+    s88_address: 1
+
+  - id: "block_B"
+    name: "Approach East"
+    length_mm: 800
+    is_station: false
+    s88_address: 2
+
+  - id: "block_C"
+    name: "Countryside Run"
+    length_mm: 1200
+    is_station: false
+    s88_address: 3
+
+  - id: "block_D"
+    name: "Secondary Station Platform"
+    length_mm: 550
+    is_station: true
+    platform_length_mm: 500
+    s88_address: 4
+
+  - id: "block_E"
+    name: "Return Curve"
+    length_mm: 700
+    is_station: false
+    s88_address: 5
+
+# ── SIGNALS ──────────────────────────────────────────────────
+# Your two signals. DCC accessory addresses.
+# aspect: which DCC output activates RED (stop) vs GREEN (go)
+signals:
+  - id: "signal_1"
+    name: "East Entry Signal"
+    dcc_address: 101
+    protects_block: "block_A"   # goes red when this block is occupied
+
+  - id: "signal_2"
+    name: "West Entry Signal"
+    dcc_address: 102
+    protects_block: "block_D"
+
+# ── ROUTES ───────────────────────────────────────────────────
+# Sequences of blocks a train travels through.
+# direction: forward or reverse
+routes:
+  - id: "route_main_loop"
+    name: "Main Loop Clockwise"
+    blocks: ["block_A", "block_B", "block_C", "block_D", "block_E"]
+    loop: true   # after last block, return to first
+
+# ── STATION DWELL TIMES ──────────────────────────────────────
+# How long (seconds) trains wait at each station
+station_dwell:
+  default_seconds: 15
+  overrides:
+    block_A: 20
+    block_D: 12
