@@ -26,6 +26,35 @@ logging.basicConfig(
 logger = logging.getLogger("main")
 
 
+async def _scan_locos(cs3: CS3PlusClient):
+    """
+    Ask the CS3+ for every loco it knows about and print a table.
+    MFX locos appear automatically once placed on the track.
+    DCC locos appear after you add them in the CS3+ loco database.
+    Use the address shown here when setting dcc_address in layout.yaml.
+    """
+    print("\n  Scanning CS3+ for registered locomotives…")
+    locos = await cs3.discover_locos()
+    if not locos:
+        print("  No locos found. Make sure MFX locos are on the track and powered.")
+        return
+
+    print(f"\n  {'#':<4} {'Name':<25} {'Protocol':<8} {'Address':<10} {'Speed':<7} Dir")
+    print("  " + "-" * 62)
+    for i, loco in enumerate(locos, 1):
+        name     = loco.get("name", "—")[:24]
+        protocol = loco.get("protocol", "?").upper()
+        address  = loco.get("address", loco.get("id", "?"))
+        speed    = loco.get("speed", 0)
+        direction = "FWD" if loco.get("direction", 1) else "REV"
+        print(f"  {i:<4} {name:<25} {protocol:<8} {str(address):<10} {speed:<7} {direction}")
+
+    print(f"\n  Total: {len(locos)} loco(s)")
+    print("  Add the address and protocol to config/layout.yaml for each loco you want to automate.")
+    print("  MFX locos: use the address shown above (assigned by CS3+ on first registration).")
+    print("  DCC locos: use the DCC address you programmed on CV1 (avoid address 3).")
+
+
 async def interactive_menu(engine: AutomationEngine, cs3: CS3PlusClient, layout):
     print("\n" + "=" * 55)
     print("  DCC Train Layout Controller")
@@ -39,6 +68,7 @@ async def interactive_menu(engine: AutomationEngine, cs3: CS3PlusClient, layout)
         print("  [4] Set individual loco speed")
         print("  [5] Control a signal manually")
         print("  [6] Show layout status")
+        print("  [7] Scan CS3+ for registered locos (MFX auto-discovery)")
         print("  [Q] Quit")
         print()
         choice = input("  Choice: ").strip().upper()
@@ -97,6 +127,9 @@ async def interactive_menu(engine: AutomationEngine, cs3: CS3PlusClient, layout)
                 status = block.occupied_by if block.occupied_by else "free"
                 kind = "STATION" if block.is_station else "block "
                 print(f"    {kind} {block.name:<30} [{status}]")
+
+        elif choice == "7":
+            await _scan_locos(cs3)
 
         elif choice == "Q":
             await engine.stop_all()

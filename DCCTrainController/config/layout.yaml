@@ -11,17 +11,38 @@ cs3_plus:
   port: 80
 
 # ── TRAINS ──────────────────────────────────────────────────
-# DCC addresses: start from 1, skip 3 (factory default — always reprogram locos away from 3)
+#
+# HOW TO FIND THE RIGHT ADDRESS:
+#   Run the software and choose option [7] "Scan CS3+ for locos".
+#   It will list every loco the CS3+ knows, with its address and protocol.
+#   Copy the address shown into dcc_address below.
+#
+# MFX locos (most Märklin locos):
+#   Place the loco on the track. It self-registers with the CS3+ within a few seconds.
+#   The CS3+ assigns it an address automatically — use that address here.
+#   protocol: mfx
+#
+# DCC locos (non-Märklin):
+#   Add them manually in the CS3+ loco database first.
+#   Program their decoder CV1 to the address you want (never use 3 — that is the factory default).
+#   protocol: dcc
+#
+# MM (Motorola) locos:
+#   Add them manually in the CS3+ loco database.
+#   protocol: mm2
+
 trains:
   - id: "train_1"
     name: "ICE Express"
-    dcc_address: 1
-    length_mm: 450          # physical length of the consist in mm
-    max_speed_step: 80      # out of 128 DCC speed steps
-    decel_distance_mm: 300  # how far ahead of stop point to start braking
+    protocol: "mfx"           # mfx | dcc | mm2
+    dcc_address: 1            # use address shown by option [7] scan
+    length_mm: 450            # measure nose to tail with all cars coupled, in mm
+    max_speed_step: 80        # 0–128 DCC speed steps (tune per loco)
+    decel_distance_mm: 300    # how far before station to start braking (mm)
 
   - id: "train_2"
     name: "Regional Freight"
+    protocol: "mfx"
     dcc_address: 2
     length_mm: 320
     max_speed_step: 60
@@ -29,7 +50,8 @@ trains:
 
   - id: "train_4"
     name: "Passenger Local"
-    dcc_address: 4
+    protocol: "dcc"           # example: a non-Märklin DCC loco
+    dcc_address: 4            # programmed via CV1 (not 3!)
     length_mm: 380
     max_speed_step: 70
     decel_distance_mm: 280

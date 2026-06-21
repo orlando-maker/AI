@@ -78,6 +78,31 @@ class CS3PlusClient:
         """Return current speed/direction/functions dict for a loco."""
         return await self._get(f"/api/loks/{dcc_address}")
 
+    async def discover_locos(self) -> list[dict]:
+        """
+        Return all locomotives the CS3+ knows about — MFX locos appear here
+        automatically after they self-register on the track. DCC/MM locos appear
+        after you add them manually in the CS3+ loco list.
+
+        Each dict contains at minimum:
+          id        – internal CS3+ loco ID (use this to control the loco)
+          name      – name shown on CS3+ display
+          address   – DCC/MM address (MFX locos use their MFX UID instead)
+          protocol  – "mfx", "dcc", "mm2", etc.
+          speed     – current speed step
+          direction – current direction
+          functions – list of function states
+        """
+        data = await self._get("/api/loks")
+        if isinstance(data, list):
+            return data
+        # CS3+ sometimes wraps the list
+        return data.get("loks", data.get("locomotives", []))
+
+    async def get_loco_by_id(self, loco_id: str) -> dict:
+        """Fetch a single loco's full status by its CS3+ internal ID."""
+        return await self._get(f"/api/loks/{loco_id}")
+
     # ── Accessory / signal control ──────────────────────────────
 
     async def set_accessory(self, dcc_address: int, output: int, activate: bool):
