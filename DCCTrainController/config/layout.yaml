@@ -5,121 +5,162 @@
 # ============================================================
 
 cs3_plus:
-  # IP address of your Märklin CS3+ on your home network
-  # Find it in CS3+ Menu > Settings > Network
+  # Find your CS3+ IP: Menu → Settings → Network → IP Address
   ip: "192.168.1.100"
   port: 80
 
 # ── TRAINS ──────────────────────────────────────────────────
 #
-# HOW TO FIND THE RIGHT ADDRESS:
-#   Run the software and choose option [7] "Scan CS3+ for locos".
-#   It will list every loco the CS3+ knows, with its address and protocol.
-#   Copy the address shown into dcc_address below.
+# autonomous: true  → software drives the train (autopilot)
+# autonomous: false → YOU drive it from the CS3+ handset; software ignores it
 #
-# MFX locos (most Märklin locos):
-#   Place the loco on the track. It self-registers with the CS3+ within a few seconds.
-#   The CS3+ assigns it an address automatically — use that address here.
-#   protocol: mfx
+# stops_at_stations: true  → passenger train — full station stop + dwell
+# stops_at_stations: false → cargo/express — slows slightly through stations, never stops
 #
-# DCC locos (non-Märklin):
-#   Add them manually in the CS3+ loco database first.
-#   Program their decoder CV1 to the address you want (never use 3 — that is the factory default).
-#   protocol: dcc
+# track: which track this train runs on. Must match a route below.
 #
-# MM (Motorola) locos:
-#   Add them manually in the CS3+ loco database.
-#   protocol: mm2
+# HOW TO FIND YOUR ADDRESS:
+#   MFX locos: place on powered track → they self-register → use option [7] Scan to find address
+#   DCC locos: program CV1 to your chosen address (never 3 — that's the factory default)
 
 trains:
-  - id: "train_1"
-    name: "ICE Express"
-    protocol: "mfx"           # mfx | dcc | mm2
-    dcc_address: 1            # use address shown by option [7] scan
-    length_mm: 450            # measure nose to tail with all cars coupled, in mm
-    max_speed_step: 80        # 0–128 DCC speed steps (tune per loco)
-    decel_distance_mm: 300    # how far before station to start braking (mm)
-
-  - id: "train_2"
-    name: "Regional Freight"
+  # ── Track 1: your main passenger train (SNCB, ICE, etc.) ──
+  - id: "passenger"
+    name: "SNCB Brussels"
     protocol: "mfx"
-    dcc_address: 2
-    length_mm: 320
-    max_speed_step: 60
-    decel_distance_mm: 250
+    dcc_address: 1               # ← update after scanning with [7]
+    track: "track_1"
+    autonomous: true             # autopilot ON
+    stops_at_stations: true      # stops at every station platform
+    length_mm: 450               # measure your train nose-to-tail in mm
+    max_speed_step: 75           # cruising speed (0–128)
+    approach_speed_step: 18      # slow creep speed entering a station
+    decel_distance_mm: 500       # 50cm before station: begin braking
 
-  - id: "train_4"
-    name: "Passenger Local"
-    protocol: "dcc"           # example: a non-Märklin DCC loco
-    dcc_address: 4            # programmed via CV1 (not 3!)
-    length_mm: 380
-    max_speed_step: 70
-    decel_distance_mm: 280
+  # ── Track 2: cargo / ICE — passes through without stopping ──
+  - id: "cargo"
+    name: "DB Cargo"
+    protocol: "mfx"
+    dcc_address: 2               # ← update after scanning with [7]
+    track: "track_2"
+    autonomous: true             # autopilot ON
+    stops_at_stations: false     # cargo — never stops at stations
+    length_mm: 620
+    max_speed_step: 85
+    approach_speed_step: 22
+    decel_distance_mm: 400
 
-# ── LAYOUT BLOCKS ────────────────────────────────────────────
-# A block is any section of track that can be independently detected.
-# Each block should have an s88 sensor (or similar) wired to your CS3+.
-# s88_address: the feedback address on your s88 module (1-based)
+  # ── Optional: a train YOU drive manually ──
+  # (Leave this in; just set autonomous: false. Software won't touch it.)
+  # - id: "manual_express"
+  #   name: "My ICE"
+  #   protocol: "mfx"
+  #   dcc_address: 5
+  #   track: "track_1"
+  #   autonomous: false          # YOU drive this from the CS3+ handset
+  #   stops_at_stations: true
+  #   length_mm: 400
+  #   max_speed_step: 90
+  #   approach_speed_step: 20
+  #   decel_distance_mm: 500
+
+# ── BLOCKS ───────────────────────────────────────────────────
+# A block = one isolated section of track with an s88 sensor.
+# Cut both rails at each block boundary. One s88 contact per block.
+# s88_address: the contact number on your s88 module (starts at 1).
+
 blocks:
-  - id: "block_A"
-    name: "Main Station Platform 1"
+  # ── Track 1 blocks ──
+  - id: "t1_station_A"
+    name: "Main Station"
+    track: "track_1"
     length_mm: 600
     is_station: true
     platform_length_mm: 550
     s88_address: 1
 
-  - id: "block_B"
-    name: "Approach East"
-    length_mm: 800
+  - id: "t1_run_1"
+    name: "Track 1 — East Run"
+    track: "track_1"
+    length_mm: 1000             # fill in your actual distance
     is_station: false
     s88_address: 2
 
-  - id: "block_C"
-    name: "Countryside Run"
-    length_mm: 1200
-    is_station: false
+  - id: "t1_station_B"
+    name: "Village Station"
+    track: "track_1"
+    length_mm: 500
+    is_station: true
+    platform_length_mm: 450
     s88_address: 3
 
-  - id: "block_D"
-    name: "Secondary Station Platform"
-    length_mm: 550
-    is_station: true
-    platform_length_mm: 500
+  - id: "t1_run_2"
+    name: "Track 1 — West Return"
+    track: "track_1"
+    length_mm: 1000
+    is_station: false
     s88_address: 4
 
-  - id: "block_E"
-    name: "Return Curve"
-    length_mm: 700
+  # ── Track 2 blocks ──
+  - id: "t2_run_1"
+    name: "Track 2 — Outbound"
+    track: "track_2"
+    length_mm: 1200
     is_station: false
     s88_address: 5
 
+  - id: "t2_station"
+    name: "Track 2 — Goods Halt"
+    track: "track_2"
+    length_mm: 600
+    is_station: true            # cargo will slow here but not stop
+    platform_length_mm: 550
+    s88_address: 6
+
+  - id: "t2_run_2"
+    name: "Track 2 — Return"
+    track: "track_2"
+    length_mm: 1200
+    is_station: false
+    s88_address: 7
+
 # ── SIGNALS ──────────────────────────────────────────────────
-# Your two signals. DCC accessory addresses.
-# aspect: which DCC output activates RED (stop) vs GREEN (go)
 signals:
   - id: "signal_1"
-    name: "East Entry Signal"
+    name: "Main Station Entry"
     dcc_address: 101
-    protects_block: "block_A"   # goes red when this block is occupied
+    protects_block: "t1_station_A"
 
   - id: "signal_2"
-    name: "West Entry Signal"
+    name: "Village Station Entry"
     dcc_address: 102
-    protects_block: "block_D"
+    protects_block: "t1_station_B"
 
 # ── ROUTES ───────────────────────────────────────────────────
-# Sequences of blocks a train travels through.
-# direction: forward or reverse
+# List blocks in the order the train travels through them.
 routes:
-  - id: "route_main_loop"
-    name: "Main Loop Clockwise"
-    blocks: ["block_A", "block_B", "block_C", "block_D", "block_E"]
-    loop: true   # after last block, return to first
+  - id: "route_track_1"
+    name: "Track 1 — Passenger Loop"
+    track: "track_1"
+    loop: true
+    blocks:
+      - "t1_station_A"
+      - "t1_run_1"
+      - "t1_station_B"
+      - "t1_run_2"
+
+  - id: "route_track_2"
+    name: "Track 2 — Cargo Loop"
+    track: "track_2"
+    loop: true
+    blocks:
+      - "t2_run_1"
+      - "t2_station"
+      - "t2_run_2"
 
 # ── STATION DWELL TIMES ──────────────────────────────────────
-# How long (seconds) trains wait at each station
 station_dwell:
-  default_seconds: 15
+  default_seconds: 15           # how long trains wait at each station
   overrides:
-    block_A: 20
-    block_D: 12
+    t1_station_A: 20            # main station gets a longer stop
+    t1_station_B: 10
