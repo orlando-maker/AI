@@ -21,6 +21,7 @@ from typing import Optional
 
 from .cs3_client import CS3PlusClient, FORWARD
 from .layout import Layout, Block, TrainConfig
+from .notify import notify
 
 logger = logging.getLogger(__name__)
 
@@ -135,9 +136,9 @@ class TrainRunner:
 
         # Stop
         await self.cs3.stop_loco(addr)
-        logger.info("%s stopped at %s — dwelling %ds",
-                    self.train.name, block.name,
-                    self.layout.dwell_seconds(block.id))
+        dwell = self.layout.dwell_seconds(block.id)
+        logger.info("%s stopped at %s — dwelling %ds", self.train.name, block.name, dwell)
+        notify(self.train.name, f"Arrived at {block.name} — departing in {dwell}s")
 
         # Sound horn if the loco supports it (F2 is typical for Märklin MFX/DCC)
         await self.cs3.set_loco_function(addr, 2, True)
@@ -145,7 +146,7 @@ class TrainRunner:
         await self.cs3.set_loco_function(addr, 2, False)
 
         # Wait dwell time
-        await asyncio.sleep(self.layout.dwell_seconds(block.id))
+        await asyncio.sleep(dwell)
 
         logger.info("%s departing %s", self.train.name, block.name)
 
@@ -253,3 +254,4 @@ class AutomationEngine:
             await runner.stop()
         self._runners.clear()
         logger.info("All trains stopped.")
+        notify("Emergency Stop", "All trains halted")

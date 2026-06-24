@@ -17,6 +17,7 @@ import sys
 from .cs3_client import CS3PlusClient
 from .layout import load_layout
 from .automation import AutomationEngine
+from .notify import notify
 
 logging.basicConfig(
     level=logging.INFO,
@@ -145,11 +146,13 @@ async def async_main(config_path: str):
     if not ok:
         print(f"\nERROR: Could not connect to CS3+ at {layout.cs3_ip}:{layout.cs3_port}")
         print("Check that:")
-        print("  • Your Mac/PC is on the same Wi-Fi as the CS3+")
+        print("  • Your Mac is on the same Wi-Fi (or Ethernet) as the CS3+")
         print("  • The IP address in config/layout.yaml is correct")
+        print("     → Find it on the CS3+: Menu → Settings → Network → IP Address")
         print("  • The CS3+ is powered on\n")
         sys.exit(1)
 
+    notify("Connected", f"CS3+ at {layout.cs3_ip} — layout loaded")
     engine = AutomationEngine(layout, cs3)
 
     try:
