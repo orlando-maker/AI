@@ -2,6 +2,7 @@ import SwiftUI
 
 struct RootView: View {
     @Environment(AirportStore.self) private var airports
+    @AppStorage(LegalDocuments.acceptedVersionKey) private var acceptedLegalVersion = 0
 
     var body: some View {
         TabView {
@@ -19,6 +20,16 @@ struct RootView: View {
 
             SettingsView()
                 .tabItem { Label("Settings", systemImage: "gearshape") }
+        }
+        .fullScreenCover(isPresented: Binding(
+            get: { acceptedLegalVersion < LegalDocuments.version },
+            set: { stillPresented in
+                if !stillPresented { acceptedLegalVersion = LegalDocuments.version }
+            }
+        )) {
+            TermsGateView {
+                acceptedLegalVersion = LegalDocuments.version
+            }
         }
         .task {
             // Fetch the full worldwide airport database (every US field down

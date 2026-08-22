@@ -11,6 +11,7 @@ struct AircraftEditView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var photoSelection: PhotosPickerItem?
     @State private var photoPreview: UIImage?
+    @State private var findingOpenPhoto = false
 
     private var derivedHex: String? {
         NNumber.icaoHex(for: aircraft.tailNumber)
@@ -46,15 +47,30 @@ struct AircraftEditView: View {
             guard let newValue else { return }
             Task {
                 if let data = try? await newValue.loadTransferable(type: Data.self) {
-                    ImageStore.delete(aircraft.photoFileName)
-                    aircraft.photoFileName = ImageStore.save(data)
-                    photoPreview = ImageStore.load(aircraft.photoFileName)
+                    setPhoto(data)
                 }
+            }
+        }
+        .sheet(isPresented: $findingOpenPhoto) {
+            OpenPhotoPickerView(initialQuery: openPhotoQuery) { data in
+                setPhoto(data)
             }
         }
         .onAppear {
             photoPreview = ImageStore.load(aircraft.photoFileName)
         }
+    }
+
+    private var openPhotoQuery: String {
+        let typeName = AircraftLibrary.preset(for: aircraft.typeCode)?.name
+            ?? (aircraft.typeCode.isEmpty ? "small airplane" : aircraft.typeCode)
+        return "\(typeName) aircraft"
+    }
+
+    private func setPhoto(_ data: Data) {
+        ImageStore.delete(aircraft.photoFileName)
+        aircraft.photoFileName = ImageStore.save(data)
+        photoPreview = ImageStore.load(aircraft.photoFileName)
     }
 
     private var photoSection: some View {
@@ -79,10 +95,18 @@ struct AircraftEditView: View {
                 .frame(maxWidth: .infinity)
                 .clipShape(RoundedRectangle(cornerRadius: 14))
 
-                PhotosPicker(selection: $photoSelection, matching: .images) {
-                    Label(photoPreview == nil ? "Choose Photo" : "Change Photo",
-                          systemImage: "photo.on.rectangle.angled")
-                        .font(.callout)
+                HStack(spacing: 20) {
+                    PhotosPicker(selection: $photoSelection, matching: .images) {
+                        Label(photoPreview == nil ? "Choose Photo" : "Change Photo",
+                              systemImage: "photo.on.rectangle.angled")
+                            .font(.callout)
+                    }
+                    Button {
+                        findingOpenPhoto = true
+                    } label: {
+                        Label("Find Open Photo", systemImage: "magnifyingglass")
+                            .font(.callout)
+                    }
                 }
             }
             .listRowInsets(EdgeInsets(top: 8, leading: 8, bottom: 8, trailing: 8))

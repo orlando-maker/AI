@@ -139,6 +139,17 @@ struct PaywallView: View {
                 Task { await pro.restorePurchases() }
             }
             .font(.callout)
+            HStack(spacing: 14) {
+                NavigationLink("Terms of Service") {
+                    LegalDocumentView(title: "Terms of Service",
+                                      text: LegalDocuments.termsOfService)
+                }
+                NavigationLink("Privacy Policy") {
+                    LegalDocumentView(title: "Privacy Policy",
+                                      text: LegalDocuments.privacyPolicy)
+                }
+            }
+            .font(.caption.weight(.semibold))
             Text("Subscriptions renew automatically until cancelled in Settings. Prices shown in your local currency at purchase.")
                 .font(.caption2)
                 .foregroundStyle(.tertiary)

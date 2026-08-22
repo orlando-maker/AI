@@ -40,7 +40,17 @@ pattern session at your home field.
   solo XC, checkride…) and a **ratings/endorsements** list (type ratings,
   high performance, tailwheel, anything).
 - **Sign in with Apple** (optional — everything works local-first).
-- **Aircraft photos**: upload a shot of your plane for the hangar list.
+- **Aircraft photos**: upload a shot of your plane, or tap **Find Open
+  Photo** to search Openverse for CC0/public-domain images (no credit
+  required) right in the app. No photo at all? Type-matched silhouette
+  artwork fills in automatically.
+- **Legal built in**: Terms of Service, Privacy Policy, and
+  acknowledgements ship in the app (Settings → Legal). A welcome/agreement
+  screen appears on first launch, and sign-up shows the standard consent
+  line. Bump `LegalDocuments.version` after editing a document to
+  re-prompt existing users. The texts are sensible starters tied to
+  orlandonell.com / support@orlandonell.com — **have them reviewed before
+  App Store release** and host matching copies on the website.
 
 ### TailTrack Pro (in-app purchase)
 - Unlimited aircraft (free tier: one).

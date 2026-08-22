@@ -193,6 +193,18 @@ struct ProfileView: View {
                 .frame(height: 48)
                 .clipShape(RoundedRectangle(cornerRadius: 12))
 
+                VStack(spacing: 6) {
+                    Text("By signing up you agree to the Terms of Service and Privacy Policy.")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                    NavigationLink {
+                        LegalView()
+                    } label: {
+                        Text("Read Terms · Privacy · Legal")
+                            .font(.caption2.weight(.semibold))
+                    }
+                }
+
                 Text("Optional — your profile and logbook live on this device either way. Signing in attaches your Apple identity for future sync features. Google sign-in requires the GoogleSignIn SDK (see README).")
                     .font(.caption)
                     .foregroundStyle(.secondary)

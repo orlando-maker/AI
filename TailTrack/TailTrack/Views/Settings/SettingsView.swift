@@ -104,6 +104,13 @@ struct SettingsView: View {
     private var aboutSection: some View {
         Section {
             LabeledContent("Version", value: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0")
+            NavigationLink("Legal") { LegalView() }
+            Link(destination: LegalDocuments.websiteURL) {
+                Label("orlandonell.com", systemImage: "globe")
+            }
+            Link(destination: URL(string: "mailto:\(LegalDocuments.supportEmail)")!) {
+                Label("Contact support", systemImage: "envelope")
+            }
         } header: {
             Text("About")
         } footer: {
