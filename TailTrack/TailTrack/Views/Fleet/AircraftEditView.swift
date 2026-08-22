@@ -66,15 +66,12 @@ struct AircraftEditView: View {
                             .resizable()
                             .scaledToFill()
                     } else {
-                        ZStack {
-                            Theme.sky
-                            VStack(spacing: 6) {
-                                Image(systemName: "airplane")
-                                    .font(.largeTitle)
-                                Text("Add a photo of your plane")
-                                    .font(.caption)
-                            }
-                            .foregroundStyle(.white.opacity(0.85))
+                        ZStack(alignment: .bottom) {
+                            AircraftArtView(typeCode: aircraft.typeCode, inset: 22)
+                            Text("Built-in artwork — add your own photo below")
+                                .font(.caption2)
+                                .foregroundStyle(.white.opacity(0.75))
+                                .padding(.bottom, 8)
                         }
                     }
                 }

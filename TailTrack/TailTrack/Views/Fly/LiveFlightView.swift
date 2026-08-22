@@ -72,7 +72,17 @@ struct LiveFlightView: View {
             .foregroundStyle(.white.opacity(0.7))
         }
         .padding(18)
-        .background(Theme.heroGradient(for: tracker.phase), in: RoundedRectangle(cornerRadius: 22))
+        .background {
+            ZStack(alignment: .topTrailing) {
+                Theme.heroGradient(for: tracker.phase)
+                AircraftTopView(category: .category(for: tracker.flight?.typeCode ?? ""))
+                    .fill(.white.opacity(0.07))
+                    .frame(width: 170, height: 170)
+                    .rotationEffect(.degrees(20))
+                    .offset(x: 45, y: -30)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 22))
+        }
         .shadow(color: .black.opacity(0.25), radius: 12, y: 6)
     }
 

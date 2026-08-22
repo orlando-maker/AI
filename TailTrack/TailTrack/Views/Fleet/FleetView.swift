@@ -99,13 +99,9 @@ private struct AircraftRow: View {
                 .frame(width: 64, height: 48)
                 .clipShape(RoundedRectangle(cornerRadius: 8))
         } else {
-            ZStack {
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(Theme.sky)
-                Image(systemName: "airplane")
-                    .foregroundStyle(.white)
-            }
-            .frame(width: 64, height: 48)
+            AircraftArtView(typeCode: plane.typeCode, inset: 5)
+                .frame(width: 64, height: 48)
+                .clipShape(RoundedRectangle(cornerRadius: 8))
         }
     }
 }

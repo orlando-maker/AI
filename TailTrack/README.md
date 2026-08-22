@@ -98,9 +98,16 @@ user ID.
 
 ### Aircraft & profile images
 Photos are picked from your library (downscaled and stored in the app's
-Application Support). For stock images of GA types, grab openly licensed
-photos from [Wikimedia Commons](https://commons.wikimedia.org) or
-[Openverse](https://openverse.org) and save them to your camera roll first.
+Application Support). **No photo? No problem** — every aircraft gets
+built-in artwork automatically: an original top-down silhouette drawn in
+code and matched to the type (high-wing Cessna, low-wing Piper/Cirrus,
+twin, turboprop, jet). It ships with the repo, so it's license-free with
+no attribution requirements. If you'd rather use real photos, note that
+most "free" aircraft photos on [Wikimedia Commons](https://commons.wikimedia.org)
+are CC-BY-SA — fine for personal use, but shipping them in an App Store
+build requires visible attribution; truly public-domain (CC0) shots from
+[Openverse](https://openverse.org) filtered to CC0 are the safe choice.
+Save one to your camera roll and upload it in the aircraft editor.
 
 ---
 
