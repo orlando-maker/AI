@@ -1,0 +1,178 @@
+import SwiftUI
+
+/// Pre-flight setup: pick an aircraft, optionally a route, see the plan
+/// numbers, and start tracking.
+struct FlightSetupView: View {
+    @Environment(FlightTracker.self) private var tracker
+    @Environment(FleetStore.self) private var fleet
+    @Environment(AirportStore.self) private var airports
+    @Environment(ProStore.self) private var pro
+
+    @State private var selectedAircraftID: UUID?
+    @State private var departure: Airport?
+    @State private var destination: Airport?
+    @State private var pickingDeparture = false
+    @State private var pickingDestination = false
+    @State private var addingAircraft = false
+    @State private var showingPaywall = false
+
+    private var selectedAircraft: Aircraft? {
+        fleet.aircraft.first { $0.id == selectedAircraftID } ?? fleet.aircraft.first
+    }
+
+    var body: some View {
+        Form {
+            aircraftSection
+            routeSection
+            if let plan = planSummary {
+                planSection(plan)
+            }
+            startSection
+        }
+        .sheet(isPresented: $pickingDeparture) {
+            AirportPickerView(title: "Departure") { departure = $0 }
+        }
+        .sheet(isPresented: $pickingDestination) {
+            AirportPickerView(title: "Destination") { destination = $0 }
+        }
+        .sheet(isPresented: $addingAircraft) {
+            NavigationStack {
+                AircraftEditView(aircraft: Aircraft()) { newPlane in
+                    fleet.add(newPlane)
+                    selectedAircraftID = newPlane.id
+                }
+            }
+        }
+        .sheet(isPresented: $showingPaywall) { PaywallView() }
+    }
+
+    // MARK: - Sections
+
+    private var aircraftSection: some View {
+        Section("Aircraft") {
+            if fleet.aircraft.isEmpty {
+                Button {
+                    addingAircraft = true
+                } label: {
+                    Label("Add your aircraft", systemImage: "plus.circle.fill")
+                }
+            } else {
+                Picker("Aircraft", selection: Binding(
+                    get: { selectedAircraft?.id },
+                    set: { selectedAircraftID = $0 }
+                )) {
+                    ForEach(fleet.aircraft) { plane in
+                        Text("\(NNumber.normalize(plane.tailNumber)) · \(plane.typeCode)")
+                            .tag(Optional(plane.id))
+                    }
+                }
+                if let plane = selectedAircraft {
+                    LabeledContent("Mode S hex") {
+                        Text(plane.resolvedHex?.uppercased() ?? "Unknown — set manually in Aircraft tab")
+                            .foregroundStyle(plane.resolvedHex == nil ? .red : .secondary)
+                            .font(.callout.monospaced())
+                    }
+                }
+                Button {
+                    if !pro.isPro {
+                        showingPaywall = true
+                    } else {
+                        addingAircraft = true
+                    }
+                } label: {
+                    Label("Add another aircraft", systemImage: "plus")
+                        .font(.callout)
+                }
+            }
+        }
+    }
+
+    private var routeSection: some View {
+        Section {
+            airportRow(label: "From", airport: departure) { pickingDeparture = true }
+            airportRow(label: "To", airport: destination) { pickingDestination = true }
+            if departure != nil || destination != nil {
+                Button {
+                    swap(&departure, &destination)
+                } label: {
+                    Label("Swap", systemImage: "arrow.up.arrow.down")
+                        .font(.callout)
+                }
+            }
+        } header: {
+            Text("Route")
+        } footer: {
+            Text("Optional — leave blank to just follow the aircraft. TailTrack fills in the departure and arrival airports automatically from where you take off and land.")
+        }
+    }
+
+    private func airportRow(label: String, airport: Airport?, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack {
+                Text(label)
+                    .foregroundStyle(.primary)
+                Spacer()
+                if let airport {
+                    VStack(alignment: .trailing) {
+                        Text(airport.ident).bold()
+                        Text(airport.name)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                } else {
+                    Text("Choose")
+                        .foregroundStyle(.tertiary)
+                }
+            }
+        }
+        .foregroundStyle(.primary)
+    }
+
+    private struct PlanSummary {
+        let distanceNM: Double
+        let courseDeg: Double
+        let eteSeconds: Double?
+    }
+
+    private var planSummary: PlanSummary? {
+        guard let departure, let destination else { return nil }
+        let dist = GreatCircle.distanceNM(from: departure.coordinate, to: destination.coordinate)
+        let course = GreatCircle.initialBearing(from: departure.coordinate, to: destination.coordinate)
+        var ete: Double?
+        if let cruise = selectedAircraft?.cruiseSpeedKt, cruise > 10 {
+            ete = dist / cruise * 3600
+        }
+        return PlanSummary(distanceNM: dist, courseDeg: course, eteSeconds: ete)
+    }
+
+    private func planSection(_ plan: PlanSummary) -> some View {
+        Section("Plan") {
+            LabeledContent("Distance", value: Format.nm(plan.distanceNM))
+            LabeledContent("Initial course", value: Format.degrees(plan.courseDeg) + " true")
+            if let ete = plan.eteSeconds {
+                LabeledContent("Time enroute", value: Format.duration(ete))
+                LabeledContent("Arrive (if wheels up now)",
+                               value: Format.localTime(Date().addingTimeInterval(ete)))
+            }
+        }
+    }
+
+    private var startSection: some View {
+        Section {
+            Button {
+                guard let plane = selectedAircraft else { return }
+                tracker.start(aircraft: plane, departure: departure, destination: destination)
+            } label: {
+                Label("Start Tracking", systemImage: "dot.radiowaves.left.and.right")
+                    .font(.headline)
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .listRowInsets(EdgeInsets())
+            .disabled(selectedAircraft == nil)
+        } footer: {
+            Text("Uses free community ADS-B networks (adsb.lol, adsb.fi, OpenSky). Coverage over remote terrain can be spotty — gaps fill in as the aircraft returns to coverage.")
+        }
+    }
+}
