@@ -74,6 +74,9 @@ private struct AircraftRow: View {
                     .foregroundStyle(.secondary)
                 HStack(spacing: 10) {
                     Label(Format.knots(plane.cruiseSpeedKt), systemImage: "gauge.with.needle")
+                    if let base = plane.homeAirportIdent {
+                        Label(base, systemImage: "house")
+                    }
                     if let hex = plane.resolvedHex {
                         Label(hex.uppercased(), systemImage: "dot.radiowaves.left.and.right")
                             .font(.caption.monospaced())

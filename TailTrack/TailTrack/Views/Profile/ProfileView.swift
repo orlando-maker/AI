@@ -14,8 +14,8 @@ struct ProfileView: View {
 
     private var profile: PilotProfile { profileStore.profile }
 
-    private var homeAirport: Airport? {
-        airports.lookup(profile.homeAirportIdent)
+    private var primaryHomeAirport: Airport? {
+        profile.primaryHomeAirportIdent.flatMap { airports.lookup($0) }
     }
 
     var body: some View {
@@ -67,6 +67,10 @@ struct ProfileView: View {
 
             VStack(spacing: 8) {
                 cardRow(label: "HOME", value: homeLineText)
+                if profile.homeAirportIdents.count > 1 {
+                    cardRow(label: "ALSO FLIES FROM",
+                            value: profile.homeAirportIdents.dropFirst().joined(separator: " · "))
+                }
                 cardRow(label: "AIRCRAFT", value: aircraftLineText)
             }
         }
@@ -77,11 +81,11 @@ struct ProfileView: View {
     }
 
     private var homeLineText: String {
-        guard !profile.homeAirportIdent.isEmpty else { return "Set home airport" }
-        if let airport = homeAirport, let city = airport.municipality {
+        guard let primary = profile.primaryHomeAirportIdent else { return "Set home airport" }
+        if let airport = primaryHomeAirport, let city = airport.municipality {
             return "\(airport.ident) (\(city.uppercased()))"
         }
-        return profile.homeAirportIdent.uppercased()
+        return primary.uppercased()
     }
 
     private var aircraftLineText: String {
@@ -256,15 +260,38 @@ struct ProfileEditView: View {
                     TextField("Certificate / ratings (e.g. Student Pilot)", text: $draft.certificateLine)
                 }
             }
-            Section("Home airport") {
+            Section {
+                ForEach(draft.homeAirportIdents, id: \.self) { ident in
+                    Button {
+                        draft.makePrimaryHomeAirport(ident)
+                    } label: {
+                        HStack {
+                            Text(ident)
+                            if ident == draft.primaryHomeAirportIdent {
+                                Text("PRIMARY")
+                                    .font(.caption2.weight(.heavy))
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 2)
+                                    .background(Theme.proGold.opacity(0.2), in: Capsule())
+                                    .foregroundStyle(Theme.proGold)
+                            }
+                            Spacer()
+                        }
+                    }
+                    .foregroundStyle(.primary)
+                }
+                .onDelete { offsets in
+                    draft.homeAirportIdents.remove(atOffsets: offsets)
+                }
                 Button {
                     pickingHome = true
                 } label: {
-                    LabeledContent("Home") {
-                        Text(draft.homeAirportIdent.isEmpty ? "Choose" : draft.homeAirportIdent)
-                    }
+                    Label("Add home airport", systemImage: "plus")
                 }
-                .foregroundStyle(.primary)
+            } header: {
+                Text("Home airports")
+            } footer: {
+                Text("Add every field you fly from — flying clubs, rentals, your tiedown. Tap one to make it primary; swipe to remove.")
             }
         }
         .navigationTitle("Edit Profile")
@@ -284,7 +311,7 @@ struct ProfileEditView: View {
             }
         }
         .sheet(isPresented: $pickingHome) {
-            AirportPickerView(title: "Home Airport") { draft.homeAirportIdent = $0.ident }
+            AirportPickerView(title: "Add Home Airport") { draft.addHomeAirport($0.ident) }
         }
         .onChange(of: photoSelection) { _, newValue in
             guard let newValue else { return }

@@ -7,6 +7,7 @@ struct FlightSetupView: View {
     @Environment(FleetStore.self) private var fleet
     @Environment(AirportStore.self) private var airports
     @Environment(ProStore.self) private var pro
+    @Environment(ProfileStore.self) private var profileStore
 
     @State private var selectedAircraftID: UUID?
     @State private var departure: Airport?
@@ -44,6 +45,18 @@ struct FlightSetupView: View {
             }
         }
         .sheet(isPresented: $showingPaywall) { PaywallView() }
+        .onAppear { prefillDeparture() }
+        .onChange(of: selectedAircraftID) { _, _ in prefillDeparture() }
+    }
+
+    /// Renters' shortcut: departure defaults to the selected plane's base
+    /// airport, falling back to the pilot's primary home airport.
+    private func prefillDeparture() {
+        guard departure == nil else { return }
+        let baseIdent = selectedAircraft?.homeAirportIdent
+            ?? profileStore.profile.primaryHomeAirportIdent
+        guard let baseIdent, let airport = airports.lookup(baseIdent) else { return }
+        departure = airport
     }
 
     // MARK: - Sections

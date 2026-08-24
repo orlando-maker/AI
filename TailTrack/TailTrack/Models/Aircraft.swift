@@ -9,6 +9,7 @@ struct Aircraft: Codable, Identifiable, Hashable {
     var cruiseSpeedKt: Double = 110   // planning true airspeed
     var icaoHexOverride: String = ""  // manual Mode S hex for non-US or edge cases
     var photoFileName: String?        // user-uploaded photo of the aircraft
+    var homeAirportIdent: String?     // where this plane lives (great for rentals)
 
     /// The Mode S hex used for ADS-B lookups: manual override if set,
     /// otherwise computed from the US N-number.

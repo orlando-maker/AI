@@ -17,6 +17,7 @@ struct AircraftEditView: View {
     @State private var originalPhotoFileName: String?
     @State private var originalCaptured = false
     @State private var sessionPicks: [String] = []
+    @State private var pickingBase = false
 
     private var derivedHex: String? {
         NNumber.icaoHex(for: aircraft.tailNumber)
@@ -73,6 +74,9 @@ struct AircraftEditView: View {
             OpenPhotoPickerView(initialQuery: openPhotoQuery) { data in
                 setPhoto(data)
             }
+        }
+        .sheet(isPresented: $pickingBase) {
+            AirportPickerView(title: "Based At") { aircraft.homeAirportIdent = $0.ident }
         }
         .onAppear {
             // onAppear re-fires when pushed pickers pop; capture once.
@@ -154,6 +158,21 @@ struct AircraftEditView: View {
                 TextField("Type code (e.g. C152)", text: $aircraft.typeCode)
                     .textInputAutocapitalization(.characters)
                     .autocorrectionDisabled()
+            }
+            Button {
+                pickingBase = true
+            } label: {
+                LabeledContent("Based at") {
+                    Text(aircraft.homeAirportIdent ?? "Choose (optional)")
+                        .foregroundStyle(aircraft.homeAirportIdent == nil ? .tertiary : .secondary)
+                }
+            }
+            .foregroundStyle(.primary)
+            if aircraft.homeAirportIdent != nil {
+                Button("Clear base airport", role: .destructive) {
+                    aircraft.homeAirportIdent = nil
+                }
+                .font(.callout)
             }
         }
     }

@@ -38,13 +38,28 @@ struct PilotProfile: Codable {
     var name: String = ""
     /// Free-form certificate/ratings headline, e.g. "Student Pilot" or "PPL · IR".
     var certificateLine: String = ""
-    var homeAirportIdent: String = ""
+    /// Home airports, primary first. Renters often fly from several fields.
+    var homeAirportIdents: [String] = []
     var avatarFileName: String?
     var appleUserID: String?
     var ratings: [RatingEntry] = []
     var milestones: [TrainingMilestone] = TrainingMilestone.defaultSyllabus()
 
     var isSignedInWithApple: Bool { !(appleUserID ?? "").isEmpty }
+
+    var primaryHomeAirportIdent: String? { homeAirportIdents.first }
+
+    mutating func addHomeAirport(_ ident: String) {
+        let code = ident.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        guard !code.isEmpty, !homeAirportIdents.contains(code) else { return }
+        homeAirportIdents.append(code)
+    }
+
+    mutating func makePrimaryHomeAirport(_ ident: String) {
+        guard let index = homeAirportIdents.firstIndex(of: ident), index != 0 else { return }
+        homeAirportIdents.remove(at: index)
+        homeAirportIdents.insert(ident, at: 0)
+    }
 
     static let certificatePresets = [
         "Student Pilot",
@@ -58,10 +73,14 @@ struct PilotProfile: Codable {
         "CFII",
     ]
 
-    // Custom decoding so profiles saved by older builds (without ratings or
-    // milestones) still load.
+    // Custom decoding so profiles saved by older builds (single home
+    // airport, no ratings or milestones) still load.
     enum CodingKeys: String, CodingKey {
-        case name, certificateLine, homeAirportIdent, avatarFileName, appleUserID, ratings, milestones
+        case name, certificateLine, homeAirportIdents, avatarFileName, appleUserID, ratings, milestones
+    }
+
+    private enum LegacyKeys: String, CodingKey {
+        case homeAirportIdent
     }
 
     init() {}
@@ -70,11 +89,19 @@ struct PilotProfile: Codable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         name = try c.decodeIfPresent(String.self, forKey: .name) ?? ""
         certificateLine = try c.decodeIfPresent(String.self, forKey: .certificateLine) ?? ""
-        homeAirportIdent = try c.decodeIfPresent(String.self, forKey: .homeAirportIdent) ?? ""
+        homeAirportIdents = try c.decodeIfPresent([String].self, forKey: .homeAirportIdents) ?? []
         avatarFileName = try c.decodeIfPresent(String.self, forKey: .avatarFileName)
         appleUserID = try c.decodeIfPresent(String.self, forKey: .appleUserID)
         ratings = try c.decodeIfPresent([RatingEntry].self, forKey: .ratings) ?? []
         milestones = try c.decodeIfPresent([TrainingMilestone].self, forKey: .milestones)
             ?? TrainingMilestone.defaultSyllabus()
+
+        // Migrate the old single home-airport field.
+        if homeAirportIdents.isEmpty,
+           let legacy = try? decoder.container(keyedBy: LegacyKeys.self),
+           let oldValue = ((try? legacy.decodeIfPresent(String.self, forKey: .homeAirportIdent)) ?? nil),
+           !oldValue.isEmpty {
+            homeAirportIdents = [oldValue]
+        }
     }
 }
