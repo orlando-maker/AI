@@ -11,6 +11,17 @@ final class AirportStore {
 
     private(set) var airports: [Airport] = []
     private(set) var byIdent: [String: Airport] = [:]
+    private var byIata: [String: Airport] = [:]
+
+    /// Pre-uppercased search fields, parallel to `airports`, so typing in
+    /// the picker doesn't re-uppercase the whole database per keystroke.
+    private struct SearchKey {
+        let ident: String
+        let iata: String?
+        let name: String
+        let municipality: String
+    }
+    private var searchKeys: [SearchKey] = []
     private(set) var usingFullDatabase = false
     private(set) var isDownloading = false
     private(set) var downloadError: String?
@@ -46,26 +57,36 @@ final class AirportStore {
         return airports.first { $0.iata == c }
     }
 
-    /// Ranked substring search over ident, IATA, name, and municipality.
+    /// Ranked search: exact ident/IATA hits first (found via dictionary, so
+    /// they can never be crowded out), then ident-prefix matches, then
+    /// name/city substring matches.
     func search(_ query: String, limit: Int = 40) -> [Airport] {
         let q = query.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
         guard !q.isEmpty else { return [] }
 
         var exact: [Airport] = []
+        var exactIdents = Set<String>()
+        func addExact(_ airport: Airport?) {
+            guard let airport, exactIdents.insert(airport.ident.uppercased()).inserted else { return }
+            exact.append(airport)
+        }
+        addExact(byIdent[q])
+        addExact(byIata[q])
+        if q.count == 3 { addExact(byIdent["K" + q]) }   // "SQL" → KSQL habit
+
         var identPrefix: [Airport] = []
         var other: [Airport] = []
+        let prefixCap = limit * 2
 
-        for airport in airports {
-            let ident = airport.ident.uppercased()
-            if ident == q || airport.iata?.uppercased() == q {
-                exact.append(airport)
-            } else if ident.hasPrefix(q) || ident.hasPrefix("K" + q) {
-                identPrefix.append(airport)
-            } else if airport.name.uppercased().contains(q) ||
-                      (airport.municipality?.uppercased().contains(q) ?? false) {
-                other.append(airport)
+        for (index, key) in searchKeys.enumerated() {
+            if identPrefix.count >= prefixCap && other.count >= limit { break }
+            if exactIdents.contains(key.ident) { continue }
+            if key.ident.hasPrefix(q) || (q.count == 3 && key.ident.hasPrefix("K" + q)) {
+                if identPrefix.count < prefixCap { identPrefix.append(airports[index]) }
+            } else if other.count < limit,
+                      key.name.contains(q) || key.municipality.contains(q) {
+                other.append(airports[index])
             }
-            if exact.count + identPrefix.count + other.count > limit * 8 { break }
         }
 
         let sizeRank: (Airport) -> Int = {
@@ -86,9 +107,12 @@ final class AirportStore {
         var best: Airport?
         var bestDist = withinNM
         for airport in airports {
-            // Cheap bounding-box reject before the trig call.
+            // Cheap bounding-box reject before the trig call (longitude
+            // difference wraps at the antimeridian).
             if abs(airport.latitude - coordinate.latitude) > 0.6 { continue }
-            if abs(airport.longitude - coordinate.longitude) > 0.8 { continue }
+            var lonDiff = abs(airport.longitude - coordinate.longitude)
+            if lonDiff > 180 { lonDiff = 360 - lonDiff }
+            if lonDiff > 0.8 { continue }
             let d = GreatCircle.distanceNM(from: coordinate, to: airport.coordinate)
             if d < bestDist {
                 best = airport
@@ -126,6 +150,15 @@ final class AirportStore {
         airports = list
         byIdent = Dictionary(list.map { ($0.ident.uppercased(), $0) },
                              uniquingKeysWith: { first, _ in first })
+        byIata = Dictionary(list.compactMap { airport in
+            airport.iata.map { ($0.uppercased(), airport) }
+        }, uniquingKeysWith: { first, _ in first })
+        searchKeys = list.map {
+            SearchKey(ident: $0.ident.uppercased(),
+                      iata: $0.iata?.uppercased(),
+                      name: $0.name.uppercased(),
+                      municipality: $0.municipality?.uppercased() ?? "")
+        }
         usingFullDatabase = full
     }
 

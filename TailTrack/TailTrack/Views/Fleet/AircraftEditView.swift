@@ -12,6 +12,11 @@ struct AircraftEditView: View {
     @State private var photoSelection: PhotosPickerItem?
     @State private var photoPreview: UIImage?
     @State private var findingOpenPhoto = false
+    // Photo files written during this edit session. Nothing already
+    // persisted is deleted until Save, so Cancel never destroys data.
+    @State private var originalPhotoFileName: String?
+    @State private var originalCaptured = false
+    @State private var sessionPicks: [String] = []
 
     private var derivedHex: String? {
         NNumber.icaoHex(for: aircraft.tailNumber)
@@ -32,11 +37,24 @@ struct AircraftEditView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
-                Button("Cancel") { dismiss() }
+                Button("Cancel") {
+                    // Discard any photos picked during this edit session.
+                    for name in sessionPicks { ImageStore.delete(name) }
+                    dismiss()
+                }
             }
             ToolbarItem(placement: .confirmationAction) {
                 Button("Save") {
                     aircraft.tailNumber = NNumber.normalize(aircraft.tailNumber)
+                    // Keep only the final pick; drop intermediate picks and
+                    // the previously saved photo it replaces.
+                    for name in sessionPicks where name != aircraft.photoFileName {
+                        ImageStore.delete(name)
+                    }
+                    if let original = originalPhotoFileName,
+                       original != aircraft.photoFileName {
+                        ImageStore.delete(original)
+                    }
                     onSave(aircraft)
                     dismiss()
                 }
@@ -57,7 +75,12 @@ struct AircraftEditView: View {
             }
         }
         .onAppear {
-            photoPreview = ImageStore.load(aircraft.photoFileName)
+            // onAppear re-fires when pushed pickers pop; capture once.
+            if !originalCaptured {
+                originalCaptured = true
+                originalPhotoFileName = aircraft.photoFileName
+                photoPreview = ImageStore.load(aircraft.photoFileName)
+            }
         }
     }
 
@@ -68,9 +91,10 @@ struct AircraftEditView: View {
     }
 
     private func setPhoto(_ data: Data) {
-        ImageStore.delete(aircraft.photoFileName)
-        aircraft.photoFileName = ImageStore.save(data)
-        photoPreview = ImageStore.load(aircraft.photoFileName)
+        guard let name = ImageStore.save(data) else { return }
+        sessionPicks.append(name)
+        aircraft.photoFileName = name
+        photoPreview = ImageStore.load(name)
     }
 
     private var photoSection: some View {

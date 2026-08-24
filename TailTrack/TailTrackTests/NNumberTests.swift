@@ -33,6 +33,17 @@ final class NNumberTests: XCTestCase {
         XCTAssertEqual(NNumber.icaoHex(for: "n1234c"), "a061be")
         XCTAssertEqual(NNumber.icaoHex(for: " 1234C "), "a061be")
         XCTAssertEqual(NNumber.normalize("n12"), "N12")
+        XCTAssertEqual(NNumber.normalize("1234C"), "N1234C")
+    }
+
+    /// Non-US registrations must pass through normalize() untouched —
+    /// no N prefix bolted onto G-ABCD and friends.
+    func testNonUSRegistrationsPassThrough() {
+        XCTAssertEqual(NNumber.normalize("G-ABCD"), "G-ABCD")
+        XCTAssertEqual(NNumber.normalize("d-eabc"), "D-EABC")
+        XCTAssertEqual(NNumber.normalize("VH-XYZ"), "VH-XYZ")
+        XCTAssertNil(NNumber.icaoHex(for: "G-ABCD"))
+        XCTAssertFalse(NNumber.isValid("G-ABCD"))
     }
 
     func testInvalidInputs() {

@@ -28,14 +28,21 @@ enum NNumber {
     )
 
     /// Normalizes user input like "n1234c " or "1234C" to "N1234C".
+    /// The N prefix is only added when the result is a valid US N-number,
+    /// so non-US registrations (G-ABCD, D-EABC, VH-XYZ…) pass through
+    /// untouched.
     static func normalize(_ raw: String) -> String {
-        var s = raw.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
-        if !s.isEmpty && !s.hasPrefix("N") { s = "N" + s }
-        return s
+        let s = raw.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        guard !s.isEmpty, !s.hasPrefix("N") else { return s }
+        let candidate = "N" + s
+        return matchesPattern(candidate) ? candidate : s
     }
 
     static func isValid(_ tailNumber: String) -> Bool {
-        let s = normalize(tailNumber)
+        matchesPattern(normalize(tailNumber))
+    }
+
+    private static func matchesPattern(_ s: String) -> Bool {
         let range = NSRange(s.startIndex..., in: s)
         return validPattern.firstMatch(in: s, range: range) != nil
     }

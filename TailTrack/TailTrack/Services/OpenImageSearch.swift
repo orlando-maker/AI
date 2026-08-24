@@ -41,7 +41,9 @@ struct OpenImageClient {
         let source: String?
     }
 
-    func search(_ query: String, pageSize: Int = 30) async throws -> [OpenImageResult] {
+    // Anonymous Openverse requests are capped at page_size 20; larger
+    // values are rejected outright.
+    func search(_ query: String, pageSize: Int = 20) async throws -> [OpenImageResult] {
         var components = URLComponents(string: "https://api.openverse.org/v1/images/")!
         components.queryItems = [
             URLQueryItem(name: "q", value: query),

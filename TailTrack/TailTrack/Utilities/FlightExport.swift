@@ -20,14 +20,14 @@ enum FlightExport {
 
         """
         for point in flight.track {
-            let elevationMeters = (point.altitudeFt ?? 0) * 0.3048
-            out += """
-                  <trkpt lat="\(point.latitude)" lon="\(point.longitude)">
-                    <ele>\(String(format: "%.1f", elevationMeters))</ele>
-                    <time>\(isoFormatter.string(from: point.time))</time>
-                  </trkpt>
-
-            """
+            out += "      <trkpt lat=\"\(point.latitude)\" lon=\"\(point.longitude)\">\n"
+            // <ele> is optional in GPX — omit it rather than writing a
+            // bogus sea-level value for samples with no altitude.
+            if let altitudeFt = point.altitudeFt {
+                out += "        <ele>\(String(format: "%.1f", altitudeFt * 0.3048))</ele>\n"
+            }
+            out += "        <time>\(isoFormatter.string(from: point.time))</time>\n"
+            out += "      </trkpt>\n"
         }
         out += """
             </trkseg>

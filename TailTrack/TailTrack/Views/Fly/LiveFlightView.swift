@@ -167,7 +167,9 @@ struct LiveFlightView: View {
         if tracker.phase == .arrived {
             VStack(spacing: 12) {
                 if let f = tracker.flight, let time = f.flightTime {
-                    Text("Flight complete — \(Format.duration(time)), \(Format.nm(f.distanceFlownNM)). Saved to your logbook.")
+                    Text(f.isMeaningful
+                         ? "Flight complete — \(Format.duration(time)), \(Format.nm(f.distanceFlownNM)). Saved to your logbook."
+                         : "Flight complete — \(Format.duration(time)). Too little track data was received to save a logbook entry.")
                         .font(.subheadline)
                         .multilineTextAlignment(.center)
                         .foregroundStyle(.secondary)

@@ -146,16 +146,34 @@ final class FlightTracker {
         let positionTime = snap.fetchedAt.addingTimeInterval(-snap.positionAgeSeconds)
         let isFresh = snap.positionAgeSeconds < 90
 
-        // Some GA transponder installs never report the "ground" flag, so a
-        // slow, low sample after having been airborne also counts as ground.
-        let referenceElevationFt = Double(flight?.destination?.elevationFt
-            ?? flight?.departure?.elevationFt ?? 0)
-        let slowAndLow = wasAirborne &&
-            (snap.groundSpeedKt ?? 999) < 35 &&
-            (snap.baroAltitudeFt.map { $0 < referenceElevationFt + 2500 } ?? false)
+        // Some GA transponder installs never set the air/ground flag, so
+        // classification needs positive evidence of flight — speed, a real
+        // climb/descent rate, or altitude well above the field. A bare
+        // numeric altitude on a parked airplane must NOT count as airborne.
+        let gs = snap.groundSpeedKt ?? 0
+        let verticalRate = abs(snap.verticalRateFpm ?? 0)
+        let takeoffFieldElev = (flight?.departure?.elevationFt
+            ?? flight?.destination?.elevationFt).map(Double.init)
+        let wellAboveField = snap.baroAltitudeFt.flatMap { alt in
+            takeoffFieldElev.map { alt > $0 + 1200 }
+        } ?? false
+
+        // After flight, slow and near field elevation counts as landed even
+        // if the transponder never flips its ground flag.
+        let slowAndLow: Bool = {
+            guard wasAirborne, (snap.groundSpeedKt ?? 999) < 35,
+                  let alt = snap.baroAltitudeFt else { return false }
+            let landingFieldElev = (flight?.destination?.elevationFt
+                ?? flight?.departure?.elevationFt).map(Double.init)
+                ?? (airports?.nearest(to: CLLocationCoordinate2D(latitude: snap.latitude,
+                                                                 longitude: snap.longitude),
+                                      withinNM: 6)?.elevationFt).map(Double.init)
+            guard let ref = landingFieldElev else { return alt < 2500 }
+            return alt < ref + 2500
+        }()
 
         let airborne = !snap.onGround && !slowAndLow &&
-            (snap.baroAltitudeFt != nil || (snap.groundSpeedKt ?? 0) > Self.airborneSpeedKt)
+            (gs > Self.airborneSpeedKt || verticalRate > 400 || wellAboveField)
 
         if isFresh {
             record(snap, at: positionTime, airborne: airborne)
@@ -172,8 +190,11 @@ final class FlightTracker {
             }
             phase = .enroute
             statusDetail = "Live via \(snap.source)"
-        } else {
-            if wasAirborne {
+        } else if wasAirborne {
+            // Only clearly ground-like samples count toward a landing; an
+            // ambiguous sample (e.g. slow cruise into a headwind with no
+            // altitude evidence) keeps the flight alive.
+            if snap.onGround || slowAndLow {
                 consecutiveGroundSamples += 1
                 if consecutiveGroundSamples >= Self.groundSamplesToLand {
                     declareLanding(at: positionTime, coordinate:
@@ -182,9 +203,12 @@ final class FlightTracker {
                 }
                 statusDetail = "Rolling out…"
             } else {
-                phase = .preflight
-                statusDetail = "On ground via \(snap.source)"
+                consecutiveGroundSamples = 0
+                statusDetail = "Live via \(snap.source)"
             }
+        } else {
+            phase = .preflight
+            statusDetail = "On ground via \(snap.source)"
         }
     }
 
@@ -195,12 +219,19 @@ final class FlightTracker {
         case .preflight, .enroute:
             let ago = latest.map { Date().timeIntervalSince($0.fetchedAt) } ?? 0
             statusDetail = "Signal lost · last contact \(Format.age(ago))"
-            // A GA aircraft dropping off coverage at low altitude near the
-            // destination very likely landed; require a long quiet period
-            // before assuming so.
-            if phase == .enroute, ago > 600, let last = flight?.track.last,
-               (last.altitudeFt ?? 0) < 4000 {
-                declareLanding(at: last.time, coordinate: last.coordinate)
+            // A long quiet period after the aircraft was last seen slow/low
+            // right next to an airport very likely means it landed there.
+            // Altitude is judged against that field's elevation, not MSL,
+            // so mountain airports work and low-coverage cruise doesn't
+            // trigger a false landing.
+            if phase == .enroute, ago > 600, wasAirborne, let last = flight?.track.last {
+                let nearby = airports?.nearest(to: last.coordinate, withinNM: 6)
+                let lowNearField = last.altitudeFt.flatMap { alt in
+                    nearby.map { alt < Double($0.elevationFt ?? 0) + 2500 }
+                } ?? false
+                if last.onGround || lowNearField {
+                    declareLanding(at: last.time, coordinate: last.coordinate)
+                }
             }
         default:
             break

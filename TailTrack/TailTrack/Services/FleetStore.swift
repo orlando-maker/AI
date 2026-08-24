@@ -30,11 +30,15 @@ final class FleetStore {
     }
 
     func delete(at offsets: IndexSet) {
+        for index in offsets where index < aircraft.count {
+            ImageStore.delete(aircraft[index].photoFileName)
+        }
         aircraft.remove(atOffsets: offsets)
         save()
     }
 
     func delete(_ plane: Aircraft) {
+        ImageStore.delete(plane.photoFileName)
         aircraft.removeAll { $0.id == plane.id }
         save()
     }
