@@ -32,11 +32,15 @@ targets:
           - UIInterfaceOrientationPortraitUpsideDown
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
-    entitlements:
-      path: TailTrack/TailTrack.entitlements
-      properties:
-        com.apple.developer.applesignin:
-          - Default
+    # Sign in with Apple requires a PAID Apple Developer account — with a
+    # free personal team the entitlement makes signing (and the whole build)
+    # fail. Building with a paid team? Uncomment this block and re-run
+    # `xcodegen generate` to enable it.
+    # entitlements:
+    #   path: TailTrack/TailTrack.entitlements
+    #   properties:
+    #     com.apple.developer.applesignin:
+    #       - Default
     settings:
       base:
         DEVELOPMENT_TEAM: ""

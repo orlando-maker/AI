@@ -209,7 +209,7 @@ struct ProfileView: View {
                     }
                 }
 
-                Text("Optional — your profile and logbook live on this device either way. Signing in attaches your Apple identity for future sync features. Google sign-in requires the GoogleSignIn SDK (see README).")
+                Text("Optional — your profile and logbook live on this device either way. Signing in needs the Sign in with Apple capability enabled in project.yml plus a paid Apple Developer account (see README); without it this button reports an error and the app works normally. Google sign-in requires the GoogleSignIn SDK.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)

@@ -41,7 +41,7 @@ struct FlightMapView: View {
                         .font(.caption)
                         .padding(5)
                         .background(.background, in: Circle())
-                        .overlay(Circle().strokeBorder(.secondary.opacity(0.4)))
+                        .overlay(Circle().strokeBorder(Color.secondary.opacity(0.4)))
                 }
             }
 
@@ -51,7 +51,7 @@ struct FlightMapView: View {
                         .font(.caption)
                         .padding(5)
                         .background(.background, in: Circle())
-                        .overlay(Circle().strokeBorder(.secondary.opacity(0.4)))
+                        .overlay(Circle().strokeBorder(Color.secondary.opacity(0.4)))
                 }
             }
 

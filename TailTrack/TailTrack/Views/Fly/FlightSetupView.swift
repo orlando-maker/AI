@@ -106,7 +106,9 @@ struct FlightSetupView: View {
             airportRow(label: "To", airport: destination) { pickingDestination = true }
             if departure != nil || destination != nil {
                 Button {
-                    swap(&departure, &destination)
+                    let previousDeparture = departure
+                    departure = destination
+                    destination = previousDeparture
                 } label: {
                     Label("Swap", systemImage: "arrow.up.arrow.down")
                         .font(.callout)

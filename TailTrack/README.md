@@ -98,9 +98,13 @@ A `DEBUG`-only "Force Pro entitlement" toggle lives in Settings for quick UI
 testing.
 
 ### Sign in with Apple
-Requires a **paid** Apple Developer account (the capability is in the
-generated entitlements). On a free team, remove the capability and use the
-app without signing in — the profile is local-first either way.
+**Off by default so the project builds on a free Apple ID** — the
+capability requires a paid Apple Developer account, and with a free
+personal team it fails signing (and the whole build). To enable it with a
+paid team: uncomment the `entitlements:` block in `project.yml`, run
+`xcodegen generate` again, and rebuild. Without it, the sign-in button
+reports an error when tapped and everything else works — the profile is
+local-first either way.
 **Google Sign-In** isn't wired up: it needs the GoogleSignIn SDK plus an
 OAuth client ID. Add the `GoogleSignIn` SPM package and a `GIDClientID` to
 Info.plist if you want it; the profile model already stores an external
