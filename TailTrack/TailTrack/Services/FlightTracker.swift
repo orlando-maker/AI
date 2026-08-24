@@ -15,6 +15,7 @@ final class FlightTracker {
         case preflight          // seen on the ground, waiting for takeoff
         case enroute
         case arrived
+        case signalLost         // reception gone mid-flight; awaiting manual landing
 
         var label: String {
             switch self {
@@ -23,6 +24,7 @@ final class FlightTracker {
             case .preflight: return "On ground"
             case .enroute: return "En route"
             case .arrived: return "Arrived"
+            case .signalLost: return "Signal lost"
             }
         }
     }
@@ -49,6 +51,9 @@ final class FlightTracker {
 
     // Landing is declared after this many consecutive on-ground samples.
     private static let groundSamplesToLand = 2
+    // After this long with no reception mid-flight, the flight ends with a
+    // "lost transponder" alert and the pilot can enter the landing manually.
+    private static let signalLossEndSeconds: TimeInterval = 480
     // A sample counts as airborne above this groundspeed even if the
     // transponder hasn't flipped its ground flag (some GA installs never do).
     private static let airborneSpeedKt = 55.0
@@ -77,6 +82,7 @@ final class FlightTracker {
             startedTracking: Date()
         )
         phase = .searching
+        NotificationManager.requestAuthorization()
 
         pollTask = Task { [weak self] in
             await self?.runPollLoop()
@@ -105,6 +111,7 @@ final class FlightTracker {
             startedTracking: Date()
         )
         phase = .searching
+        NotificationManager.requestAuthorization()
 
         pollTask = Task { [weak self] in
             await self?.runPollLoop()
@@ -142,7 +149,7 @@ final class FlightTracker {
     private func runPollLoop() async {
         while !Task.isCancelled {
             await poll()
-            if phase == .arrived || Task.isCancelled { break }
+            if phase == .arrived || phase == .signalLost || Task.isCancelled { break }
             let seconds: Double = (phase == .enroute) ? 8 : 15
             try? await Task.sleep(for: .seconds(seconds))
         }
@@ -255,19 +262,22 @@ final class FlightTracker {
         case .preflight, .enroute:
             let ago = latest.map { Date().timeIntervalSince($0.fetchedAt) } ?? 0
             statusDetail = "Signal lost · last contact \(Format.age(ago))"
-            // A long quiet period after the aircraft was last seen slow/low
-            // right next to an airport very likely means it landed there.
-            // Altitude is judged against that field's elevation, not MSL,
-            // so mountain airports work and low-coverage cruise doesn't
-            // trigger a false landing.
-            if phase == .enroute, ago > 600, wasAirborne, let last = flight?.track.last {
-                let nearby = airports?.nearest(to: last.coordinate, withinNM: 6)
-                let lowNearField = last.altitudeFt.flatMap { alt in
-                    nearby.map { alt < Double($0.elevationFt ?? 0) + 2500 }
-                } ?? false
-                if last.onGround || lowNearField {
-                    declareLanding(at: last.time, coordinate: last.coordinate)
-                }
+            guard phase == .enroute, wasAirborne, ago > Self.signalLossEndSeconds,
+                  let last = flight?.track.last else { break }
+
+            // If the aircraft was last seen slow/low right next to an
+            // airport, it very likely landed there (judged against that
+            // field's elevation so mountain airports work). Otherwise the
+            // flight ends as "signal lost": the pilot gets an alert and can
+            // enter the landing time and engine hours manually.
+            let nearby = airports?.nearest(to: last.coordinate, withinNM: 6)
+            let lowNearField = last.altitudeFt.flatMap { alt in
+                nearby.map { alt < Double($0.elevationFt ?? 0) + 2500 }
+            } ?? false
+            if last.onGround || lowNearField {
+                declareLanding(at: last.time, coordinate: last.coordinate)
+            } else {
+                endDueToSignalLoss()
             }
         default:
             break
@@ -316,6 +326,33 @@ final class FlightTracker {
         statusDetail = "Landed"
         cancelPolling()
 
+        if let f = flight, f.isMeaningful {
+            logbook?.add(f)
+        }
+    }
+
+    private func endDueToSignalLoss() {
+        phase = .signalLost
+        statusDetail = "Transponder signal lost — set the landing time when you're down."
+        cancelPolling()
+        NotificationManager.send(
+            title: "Lost transponder signal",
+            body: "\(flight?.tailNumber ?? "Your aircraft") hasn't been heard by the ADS-B networks for a while. Open TailTrack to log the landing time."
+        )
+        if let f = flight, f.isMeaningful {
+            logbook?.add(f)
+        }
+    }
+
+    /// Pilot-entered landing details, used after a signal-loss ending or to
+    /// attach engine times to a normal arrival. Passing nil leaves a value
+    /// unchanged.
+    func recordLandingDetails(landingTime: Date?, hobbs: Double?, tach: Double?) {
+        if let landingTime { flight?.landingTime = landingTime }
+        if let hobbs { flight?.hobbsTime = hobbs }
+        if let tach { flight?.tachTime = tach }
+        if phase == .signalLost { phase = .arrived }
+        statusDetail = "Landed"
         if let f = flight, f.isMeaningful {
             logbook?.add(f)
         }

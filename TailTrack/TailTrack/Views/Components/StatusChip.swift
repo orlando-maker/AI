@@ -11,6 +11,7 @@ struct StatusChip: View {
         case .preflight: return .orange
         case .enroute: return .blue
         case .arrived: return .green
+        case .signalLost: return .red
         }
     }
 

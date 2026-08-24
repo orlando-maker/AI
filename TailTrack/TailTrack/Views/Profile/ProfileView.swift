@@ -29,6 +29,7 @@ struct ProfileView: View {
                     signInSection
                 }
                 .padding()
+                .readableContentWidth()
             }
             .background(Color(uiColor: .systemGroupedBackground))
             .navigationTitle("Profile")
@@ -226,17 +227,27 @@ struct ProfileView: View {
                     Button {
                         Task { await signInWithGoogle() }
                     } label: {
-                        HStack(spacing: 8) {
-                            Image(systemName: "g.circle.fill")
-                                .font(.title3)
+                        HStack(spacing: 10) {
+                            Text("G")
+                                .font(.system(size: 20, weight: .bold, design: .rounded))
+                                .foregroundStyle(
+                                    LinearGradient(colors: [.blue, .red, .yellow, .green],
+                                                   startPoint: .topLeading,
+                                                   endPoint: .bottomTrailing)
+                                )
                             Text("Continue with Google")
-                                .font(.headline)
+                                .font(.system(size: 17, weight: .medium))
+                                .foregroundStyle(.primary)
                         }
                         .frame(maxWidth: .infinity)
-                        .frame(height: 44)
+                        .frame(height: 48)
+                        .background(Color(uiColor: .systemBackground),
+                                    in: RoundedRectangle(cornerRadius: 12))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .strokeBorder(Color.secondary.opacity(0.35))
+                        )
                     }
-                    .buttonStyle(.bordered)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
                 }
 
                 VStack(spacing: 6) {

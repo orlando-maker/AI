@@ -31,6 +31,9 @@ struct Flight: Codable, Identifiable {
     var landingTime: Date?
     var track: [TrackPoint] = []
     var notes: String = ""
+    /// Optional engine times logged at shutdown (Hobbs / tach reading).
+    var hobbsTime: Double?
+    var tachTime: Double?
 
     // MARK: - Derived stats
 

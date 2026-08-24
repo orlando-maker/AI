@@ -115,7 +115,6 @@ struct LogbookScanView: View {
                 }
                 .padding(.vertical, 2)
             }
-            .onDelete { entries.remove(atOffsets: $0) }
         }
     }
 

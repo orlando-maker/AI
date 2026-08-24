@@ -24,6 +24,7 @@ struct FlightDetailView: View {
                 exportCard
             }
             .padding()
+            .readableContentWidth()
         }
         .background(Color(uiColor: .systemGroupedBackground))
         .navigationTitle(flight.routeTitle)
@@ -92,6 +93,12 @@ struct FlightDetailView: View {
             StatTile(label: "Max GS", value: flight.maxGroundSpeedKt.map(Format.knots) ?? "—")
             StatTile(label: "Avg GS", value: flight.averageGroundSpeedKt.map(Format.knots) ?? "—")
             StatTile(label: "Cruise GS", value: flight.cruiseGroundSpeedKt.map(Format.knots) ?? "—")
+            if let hobbs = flight.hobbsTime {
+                StatTile(label: "Hobbs", value: String(format: "%.1f", hobbs))
+            }
+            if let tach = flight.tachTime {
+                StatTile(label: "Tach", value: String(format: "%.1f", tach))
+            }
         }
     }
 

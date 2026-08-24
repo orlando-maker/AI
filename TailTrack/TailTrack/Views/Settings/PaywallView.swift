@@ -16,6 +16,7 @@ struct PaywallView: View {
                     footerLinks
                 }
                 .padding()
+                .readableContentWidth()
             }
             .background(Color(uiColor: .systemGroupedBackground))
             .toolbar {

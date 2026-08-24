@@ -10,6 +10,7 @@ struct LiveFlightView: View {
     @State private var confirmingEnd = false
     @State private var hybridMap = false
     @State private var showingPaywall = false
+    @State private var showingLandingSheet = false
 
     var body: some View {
         ScrollView {
@@ -20,9 +21,20 @@ struct LiveFlightView: View {
                 controls
             }
             .padding()
+            .readableContentWidth()
         }
         .background(Color(uiColor: .systemGroupedBackground))
         .sheet(isPresented: $showingPaywall) { PaywallView() }
+        .sheet(isPresented: $showingLandingSheet) {
+            NavigationStack {
+                LandingDetailsSheet(
+                    initialLandingTime: tracker.flight?.landingTime
+                        ?? tracker.flight?.track.last?.time ?? Date()
+                ) { time, hobbs, tach in
+                    tracker.recordLandingDetails(landingTime: time, hobbs: hobbs, tach: tach)
+                }
+            }
+        }
         .confirmationDialog("End this flight?", isPresented: $confirmingEnd, titleVisibility: .visible) {
             Button("End & Save to Logbook") { tracker.endTracking() }
             Button("Discard Flight", role: .destructive) { tracker.reset() }
@@ -172,7 +184,8 @@ struct LiveFlightView: View {
 
     @ViewBuilder
     private var controls: some View {
-        if tracker.phase == .arrived {
+        switch tracker.phase {
+        case .arrived:
             VStack(spacing: 12) {
                 if let f = tracker.flight, let time = f.flightTime {
                     Text(f.isMeaningful
@@ -183,6 +196,14 @@ struct LiveFlightView: View {
                         .foregroundStyle(.secondary)
                 }
                 Button {
+                    showingLandingSheet = true
+                } label: {
+                    Label("Log Engine Hours / Adjust Landing", systemImage: "engine.combustion")
+                        .font(.callout.weight(.semibold))
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                Button {
                     tracker.reset()
                 } label: {
                     Text("Done")
@@ -192,7 +213,30 @@ struct LiveFlightView: View {
                 }
                 .buttonStyle(.borderedProminent)
             }
-        } else {
+        case .signalLost:
+            VStack(spacing: 12) {
+                Text("Lost the transponder signal — coverage may have dropped, or the flight ended outside receiver range. If you've landed, add the landing time (and engine hours if you keep them). Everything captured so far is saved.")
+                    .font(.subheadline)
+                    .multilineTextAlignment(.center)
+                    .foregroundStyle(.secondary)
+                Button {
+                    showingLandingSheet = true
+                } label: {
+                    Label("Add Landing Time", systemImage: "airplane.arrival")
+                        .font(.headline)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 6)
+                }
+                .buttonStyle(.borderedProminent)
+                Button {
+                    tracker.reset()
+                } label: {
+                    Text("Done")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+            }
+        default:
             Button(role: .destructive) {
                 confirmingEnd = true
             } label: {

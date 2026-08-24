@@ -50,6 +50,7 @@ struct StatsView: View {
                 recordsCard
             }
             .padding()
+            .readableContentWidth()
         }
         .background(Color(uiColor: .systemGroupedBackground))
         .navigationTitle("Pilot Stats")
@@ -127,7 +128,7 @@ struct StatsView: View {
                 .font(.headline)
             recordRow("clock.fill", "Longest flight",
                       longestFlight.flatMap { f in f.flightTime.map { "\(Format.duration($0)) · \(f.routeTitle)" } } ?? "—")
-            recordRow("point.topleft.down.curvedto.point.bottomright.up.fill", "Farthest flight",
+            recordRow("arrow.up.right.circle.fill", "Farthest flight",
                       farthestFlight.map { "\(Format.nm($0.distanceFlownNM)) · \($0.routeTitle)" } ?? "—")
             recordRow("mountain.2.fill", "Highest altitude",
                       logbook.flights.compactMap(\.maxAltitudeFt).max().map(Format.feet) ?? "—")

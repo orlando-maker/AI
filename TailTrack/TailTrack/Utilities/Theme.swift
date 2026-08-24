@@ -53,6 +53,15 @@ enum Theme {
     }
 }
 
+extension View {
+    /// Keeps card layouts a readable width on iPad instead of stretching
+    /// edge to edge.
+    func readableContentWidth() -> some View {
+        frame(maxWidth: 700)
+            .frame(maxWidth: .infinity)
+    }
+}
+
 /// Translucent stat cell used on top of gradient hero cards.
 struct GlassTile: View {
     let label: String

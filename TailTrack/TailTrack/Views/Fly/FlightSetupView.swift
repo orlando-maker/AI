@@ -68,16 +68,30 @@ struct FlightSetupView: View {
         .sheet(isPresented: $showingPaywall) { PaywallView() }
         .onAppear { prefillDeparture() }
         .onChange(of: selectedAircraftID) { _, _ in prefillDeparture() }
+        .onChange(of: mode) { _, newMode in
+            // The home-field prefill makes no sense for an airline flight;
+            // clear it (only if it was auto-filled) when switching to crew
+            // mode, and restore it when switching back.
+            switch newMode {
+            case .crew:
+                if departure?.ident == autofilledDepartureIdent { departure = nil }
+            case .personal:
+                prefillDeparture()
+            }
+        }
     }
+
+    @State private var autofilledDepartureIdent: String?
 
     /// Renters' shortcut: departure defaults to the selected plane's base
     /// airport, falling back to the pilot's primary home airport.
     private func prefillDeparture() {
-        guard departure == nil else { return }
+        guard mode == .personal, departure == nil else { return }
         let baseIdent = selectedAircraft?.homeAirportIdent
             ?? profileStore.profile.primaryHomeAirportIdent
         guard let baseIdent, let airport = airports.lookup(baseIdent) else { return }
         departure = airport
+        autofilledDepartureIdent = airport.ident
     }
 
     // MARK: - Sections
@@ -101,10 +115,19 @@ struct FlightSetupView: View {
                     }
                 }
                 if let plane = selectedAircraft {
-                    LabeledContent("Mode S hex") {
-                        Text(plane.resolvedHex?.uppercased() ?? "Unknown — set manually in Aircraft tab")
-                            .foregroundStyle(plane.resolvedHex == nil ? .red : .secondary)
-                            .font(.callout.monospaced())
+                    LabeledContent("Tracking by") {
+                        if let hex = plane.resolvedHex {
+                            Text("\(NNumber.normalize(plane.tailNumber)) · \(hex.uppercased())")
+                                .foregroundStyle(.secondary)
+                                .font(.callout.monospaced())
+                        } else {
+                            // Non-US registrations (C-ABCD, G-…, D-…) are
+                            // found live by registration — still just the
+                            // tail number, no setup needed.
+                            Text("\(NNumber.normalize(plane.tailNumber)) · live lookup")
+                                .foregroundStyle(.secondary)
+                                .font(.callout)
+                        }
                     }
                 }
                 Button {
@@ -198,7 +221,9 @@ struct FlightSetupView: View {
         let dist = GreatCircle.distanceNM(from: departure.coordinate, to: destination.coordinate)
         let course = GreatCircle.initialBearing(from: departure.coordinate, to: destination.coordinate)
         var ete: Double?
-        if let cruise = selectedAircraft?.cruiseSpeedKt, cruise > 10 {
+        // Cruise-speed planning only applies to your own aircraft — a crew
+        // flight's ETE comes from live groundspeed once it's airborne.
+        if mode == .personal, let cruise = selectedAircraft?.cruiseSpeedKt, cruise > 10 {
             ete = dist / cruise * 3600
         }
         return PlanSummary(distanceNM: dist, courseDeg: course, eteSeconds: ete)
