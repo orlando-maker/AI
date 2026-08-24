@@ -21,6 +21,8 @@ struct RootView: View {
             SettingsView()
                 .tabItem { Label("Settings", systemImage: "gearshape") }
         }
+        .fontDesign(.rounded)
+        .onOpenURL { GoogleAuth.handle(url: $0) }
         .fullScreenCover(isPresented: Binding(
             get: { acceptedLegalVersion < LegalDocuments.version },
             set: { stillPresented in

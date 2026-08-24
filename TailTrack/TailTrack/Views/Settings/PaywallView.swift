@@ -51,9 +51,11 @@ struct PaywallView: View {
     private var featureList: some View {
         VStack(alignment: .leading, spacing: 14) {
             feature("airplane", "Unlimited aircraft", "Free covers one plane; Pro covers the whole hangar and rentals.")
-            feature("square.and.arrow.up", "GPX & CSV export", "Pull any flight into ForeFlight, Google Earth, or a spreadsheet.")
+            feature("person.2.fill", "Crew Mode", "Track any airline flight by callsign — DAL, AAL, UAL, and everyone else.")
+            feature("chart.bar.fill", "Pilot Stats", "Hours by month, personal records, most-visited airports.")
+            feature("doc.viewfinder", "Logbook page scanning", "Photograph your paper logbook — on-device recognition imports the entries.")
+            feature("square.and.arrow.up", "Exports & share cards", "GPX, CSV, and beautiful shareable flight cards.")
             feature("globe.americas.fill", "Satellite maps", "Hybrid satellite imagery with realistic terrain on the live map.")
-            feature("heart.fill", "Support development", "Keeps TailTrack improving — and the core tracker free for everyone.")
         }
         .padding(18)
         .background(.background, in: RoundedRectangle(cornerRadius: 18))

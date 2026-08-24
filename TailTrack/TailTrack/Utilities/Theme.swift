@@ -34,6 +34,16 @@ enum Theme {
     /// Premium gold accent for Pro branding.
     static let proGold = Color(red: 0.95, green: 0.75, blue: 0.25)
 
+    /// Richer midnight-indigo gradient shown to Pro members on hero cards.
+    static let proSky = LinearGradient(
+        colors: [
+            Color(red: 0.03, green: 0.05, blue: 0.16),
+            Color(red: 0.10, green: 0.12, blue: 0.38),
+            Color(red: 0.24, green: 0.18, blue: 0.52),
+        ],
+        startPoint: .topLeading, endPoint: .bottomTrailing
+    )
+
     static func heroGradient(for phase: FlightTracker.Phase) -> LinearGradient {
         switch phase {
         case .enroute: return sky

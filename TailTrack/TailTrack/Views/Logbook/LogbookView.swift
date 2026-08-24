@@ -1,8 +1,14 @@
 import SwiftUI
 
-/// Personal flight log: totals up top, then every tracked flight.
+/// Personal flight log: totals up top, Pro stats, then every flight —
+/// tracked live or imported from a paper logbook.
 struct LogbookView: View {
     @Environment(LogbookStore.self) private var logbook
+    @Environment(ProStore.self) private var pro
+
+    @State private var showingPaywall = false
+    @State private var addingManualEntry = false
+    @State private var scanningPage = false
 
     var body: some View {
         NavigationStack {
@@ -11,7 +17,7 @@ struct LogbookView: View {
                     ContentUnavailableView(
                         "No flights yet",
                         systemImage: "book.closed",
-                        description: Text("Track a flight from the Fly tab and it lands here automatically.")
+                        description: Text("Track a flight from the Fly tab, or add past flights with the + button — type them in or scan a logbook page.")
                     )
                 } else {
                     List {
@@ -19,6 +25,9 @@ struct LogbookView: View {
                             totalsCard
                                 .listRowInsets(EdgeInsets())
                                 .listRowBackground(Color.clear)
+                        }
+                        Section {
+                            statsRow
                         }
                         Section("Flights") {
                             ForEach(logbook.flights) { flight in
@@ -37,7 +46,66 @@ struct LogbookView: View {
                 }
             }
             .navigationTitle("Logbook")
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    Menu {
+                        Button {
+                            addingManualEntry = true
+                        } label: {
+                            Label("Add Past Flight", systemImage: "square.and.pencil")
+                        }
+                        Button {
+                            if pro.isPro { scanningPage = true } else { showingPaywall = true }
+                        } label: {
+                            Label(pro.isPro ? "Scan Logbook Page" : "Scan Logbook Page (Pro)",
+                                  systemImage: "doc.viewfinder")
+                        }
+                    } label: {
+                        Image(systemName: "plus")
+                    }
+                }
+            }
+            .sheet(isPresented: $showingPaywall) { PaywallView() }
+            .sheet(isPresented: $addingManualEntry) {
+                NavigationStack { ManualFlightEntryView() }
+            }
+            .sheet(isPresented: $scanningPage) {
+                NavigationStack { LogbookScanView() }
+            }
         }
+    }
+
+    private var statsRow: some View {
+        Group {
+            if pro.isPro {
+                NavigationLink {
+                    StatsView()
+                } label: {
+                    statsLabel
+                }
+            } else {
+                Button {
+                    showingPaywall = true
+                } label: {
+                    HStack {
+                        statsLabel
+                        Spacer()
+                        Text("PRO")
+                            .font(.caption2.weight(.heavy))
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Theme.proGold.opacity(0.2), in: Capsule())
+                            .foregroundStyle(Theme.proGold)
+                    }
+                }
+                .foregroundStyle(.primary)
+            }
+        }
+    }
+
+    private var statsLabel: some View {
+        Label("Pilot Stats — hours, records, top airports", systemImage: "chart.bar.fill")
+            .font(.subheadline)
     }
 
     private var totalsCard: some View {
@@ -68,6 +136,10 @@ struct LogbookView: View {
 private struct LogbookRow: View {
     let flight: Flight
 
+    private var displayDistanceNM: Double {
+        flight.track.isEmpty ? (flight.routeDistanceNM ?? 0) : flight.distanceFlownNM
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
@@ -83,7 +155,13 @@ private struct LogbookRow: View {
             HStack(spacing: 10) {
                 Text(flight.startedTracking.formatted(date: .abbreviated, time: .omitted))
                 Text(flight.tailNumber)
-                Text(Format.nm(flight.distanceFlownNM))
+                if displayDistanceNM > 0 {
+                    Text(Format.nm(displayDistanceNM))
+                }
+                if flight.track.isEmpty {
+                    Label("Imported", systemImage: "square.and.pencil")
+                        .font(.caption2)
+                }
             }
             .font(.caption)
             .foregroundStyle(.secondary)

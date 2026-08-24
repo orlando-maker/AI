@@ -54,8 +54,18 @@ pattern session at your home field.
 
 ### TailTrack Pro (in-app purchase)
 - Unlimited aircraft (free tier: one).
-- GPX & CSV export of any flight (opens in ForeFlight, Google Earth, Excel).
+- **Crew Mode** — track any airline flight by ICAO callsign (DAL123,
+  AAL456, UAL89…) with the same live map and stats; the aircraft type
+  fills in automatically. Built for flight crews jumpseating home.
+- **Pilot Stats** — hours by month, yearly totals, most-visited airports,
+  personal records.
+- **Logbook page scanning** — photograph a paper logbook page; Apple's
+  on-device Vision OCR extracts candidate entries (date, tail, route,
+  hours) for review before import. No cloud, no API key. (Typing entries
+  in manually is free for everyone.)
+- GPX & CSV export plus a shareable flight-summary image card.
 - Satellite/hybrid live map with realistic terrain.
+- Pro visual theme: midnight-indigo gradients with gold trim.
 
 Suggested pricing (configured in `TailTrack.storekit` and App Store
 Connect): **$2.99/month**, **$19.99/year** (highlighted as best value),
@@ -105,10 +115,17 @@ paid team: uncomment the `entitlements:` block in `project.yml`, run
 `xcodegen generate` again, and rebuild. Without it, the sign-in button
 reports an error when tapped and everything else works — the profile is
 local-first either way.
-**Google Sign-In** isn't wired up: it needs the GoogleSignIn SDK plus an
-OAuth client ID. Add the `GoogleSignIn` SPM package and a `GIDClientID` to
-Info.plist if you want it; the profile model already stores an external
-user ID.
+### Google Sign-In
+The code is fully wired — the button appears automatically once you
+enable it (about 10 minutes):
+1. In `project.yml`, uncomment the `packages:` block at the top and the
+   `dependencies:`/`GIDClientID`/`CFBundleURLTypes` lines in the target.
+2. Create an **iOS OAuth client ID** at
+   [console.cloud.google.com](https://console.cloud.google.com) →
+   APIs & Services → Credentials → Create Credentials → OAuth client ID
+   (bundle ID `com.orlandonell.tailtrack`).
+3. Paste the client ID into `GIDClientID` and its reversed form into the
+   URL scheme, then run `xcodegen generate` and rebuild.
 
 ### Aircraft & profile images
 Photos are picked from your library (downscaled and stored in the app's

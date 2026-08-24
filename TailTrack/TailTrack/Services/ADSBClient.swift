@@ -48,15 +48,16 @@ struct ADSBClient {
         session = URLSession(configuration: config)
     }
 
-    /// Looks up the aircraft by Mode S hex if known, otherwise by registration.
-    /// Returns nil when the sources are reachable but the aircraft isn't
-    /// currently broadcasting; throws when no source could be reached.
-    func snapshot(hex: String?, registration: String?) async throws -> ADSBSnapshot? {
+    /// Looks up the aircraft by Mode S hex if known, else by airline
+    /// callsign (crew mode), else by registration. Returns nil when the
+    /// sources are reachable but the aircraft isn't currently broadcasting;
+    /// throws when no source could be reached.
+    func snapshot(hex: String?, registration: String?, callsign: String? = nil) async throws -> ADSBSnapshot? {
         var failures: [String] = []
         var sawEmptyResult = false
 
         for source in Self.v2Sources {
-            guard let url = source.url(hex: hex, registration: registration) else { continue }
+            guard let url = source.url(hex: hex, registration: registration, callsign: callsign) else { continue }
             do {
                 if let snap = try await fetchV2(url: url, sourceName: source.name) {
                     return snap
@@ -88,9 +89,12 @@ struct ADSBClient {
         let name: String
         let base: String
 
-        func url(hex: String?, registration: String?) -> URL? {
+        func url(hex: String?, registration: String?, callsign: String?) -> URL? {
             if let hex, !hex.isEmpty {
                 return URL(string: "\(base)/hex/\(hex)")
+            }
+            if let callsign, !callsign.isEmpty {
+                return URL(string: "\(base)/callsign/\(callsign)")
             }
             if let registration, !registration.isEmpty {
                 return URL(string: "\(base)/registration/\(registration)")

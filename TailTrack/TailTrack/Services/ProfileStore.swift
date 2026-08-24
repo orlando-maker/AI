@@ -30,6 +30,8 @@ final class ProfileStore {
 
     func signOut() {
         profile.appleUserID = nil
+        profile.googleUserID = nil
+        GoogleAuth.signOut()
     }
 
     private func save() {

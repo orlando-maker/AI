@@ -32,6 +32,8 @@ final class FlightTracker {
     private(set) var latest: ADSBSnapshot?
     private(set) var statusDetail: String = ""
     private(set) var aircraft: Aircraft?
+    /// Set for crew-mode flights tracked by airline callsign (e.g. DAL123).
+    private(set) var targetCallsign: String?
 
     /// Set by the app so completed flights land in the logbook.
     var logbook: LogbookStore?
@@ -58,6 +60,7 @@ final class FlightTracker {
     func start(aircraft: Aircraft, departure: Airport?, destination: Airport?) {
         cancelPolling()
         self.aircraft = aircraft
+        targetCallsign = nil
         discoveredHex = aircraft.resolvedHex
         consecutiveGroundSamples = 0
         wasAirborne = false
@@ -69,6 +72,34 @@ final class FlightTracker {
             tailNumber: NNumber.normalize(aircraft.tailNumber),
             typeCode: aircraft.typeCode,
             icaoHex: discoveredHex,
+            departure: departure,
+            destination: destination,
+            startedTracking: Date()
+        )
+        phase = .searching
+
+        pollTask = Task { [weak self] in
+            await self?.runPollLoop()
+        }
+    }
+
+    /// Crew mode: follow an airline flight by its ICAO callsign (DAL123,
+    /// AAL456…). Same engine, no aircraft profile needed.
+    func startCrewFlight(callsign: String, departure: Airport?, destination: Airport?) {
+        cancelPolling()
+        aircraft = nil
+        let normalized = callsign.uppercased().replacingOccurrences(of: " ", with: "")
+        targetCallsign = normalized
+        discoveredHex = nil
+        consecutiveGroundSamples = 0
+        wasAirborne = false
+        lastRecordedPointTime = nil
+        latest = nil
+        statusDetail = "Contacting ADS-B networks…"
+
+        flight = Flight(
+            tailNumber: normalized,
+            typeCode: "",
             departure: departure,
             destination: destination,
             startedTracking: Date()
@@ -97,6 +128,7 @@ final class FlightTracker {
         flight = nil
         latest = nil
         aircraft = nil
+        targetCallsign = nil
         statusDetail = ""
     }
 
@@ -117,11 +149,12 @@ final class FlightTracker {
     }
 
     private func poll() async {
-        guard let aircraft else { return }
+        guard aircraft != nil || targetCallsign != nil else { return }
         do {
             let snap = try await client.snapshot(
                 hex: discoveredHex,
-                registration: NNumber.normalize(aircraft.tailNumber)
+                registration: aircraft.map { NNumber.normalize($0.tailNumber) },
+                callsign: targetCallsign
             )
             guard !Task.isCancelled else { return }
             if let snap {
@@ -141,6 +174,9 @@ final class FlightTracker {
             flight?.icaoHex = snap.hex
         }
         if flight?.firstContact == nil { flight?.firstContact = snap.fetchedAt }
+        if flight?.typeCode.isEmpty == true, let type = snap.typeCode {
+            flight?.typeCode = type
+        }
 
         // Ignore badly stale positions for track recording, but still show them.
         let positionTime = snap.fetchedAt.addingTimeInterval(-snap.positionAgeSeconds)

@@ -8,9 +8,11 @@ struct ProfileView: View {
     @Environment(ProfileStore.self) private var profileStore
     @Environment(FleetStore.self) private var fleet
     @Environment(AirportStore.self) private var airports
+    @Environment(ProStore.self) private var pro
 
     @State private var editing = false
     @State private var showingTraining = false
+    @State private var signInErrorMessage: String?
 
     private var profile: PilotProfile { profileStore.profile }
 
@@ -41,6 +43,14 @@ struct ProfileView: View {
             .sheet(isPresented: $showingTraining) {
                 NavigationStack { TrainingView() }
             }
+            .alert("Sign-in failed", isPresented: Binding(
+                get: { signInErrorMessage != nil },
+                set: { if !$0 { signInErrorMessage = nil } }
+            )) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(signInErrorMessage ?? "")
+            }
         }
     }
 
@@ -52,9 +62,20 @@ struct ProfileView: View {
                 .frame(width: 110, height: 110)
 
             VStack(spacing: 4) {
-                Text(profile.name.isEmpty ? "Add your name" : profile.name.uppercased())
-                    .font(.system(.title2, design: .rounded).weight(.heavy))
-                    .foregroundStyle(.white)
+                HStack(spacing: 8) {
+                    Text(profile.name.isEmpty ? "Add your name" : profile.name.uppercased())
+                        .font(.system(.title2, design: .rounded).weight(.heavy))
+                        .foregroundStyle(.white)
+                    if pro.isPro {
+                        Text("PRO")
+                            .font(.caption2.weight(.heavy))
+                            .tracking(1)
+                            .padding(.horizontal, 7)
+                            .padding(.vertical, 3)
+                            .background(Theme.proGold, in: Capsule())
+                            .foregroundStyle(.black)
+                    }
+                }
                 if !profile.certificateLine.isEmpty {
                     Text(profile.certificateLine.uppercased())
                         .font(.caption.weight(.bold))
@@ -76,7 +97,11 @@ struct ProfileView: View {
         }
         .padding(22)
         .frame(maxWidth: .infinity)
-        .background(Theme.sky, in: RoundedRectangle(cornerRadius: 24))
+        .background(pro.isPro ? Theme.proSky : Theme.sky, in: RoundedRectangle(cornerRadius: 24))
+        .overlay(
+            RoundedRectangle(cornerRadius: 24)
+                .strokeBorder(Theme.proGold.opacity(pro.isPro ? 0.55 : 0), lineWidth: 1.5)
+        )
         .shadow(color: .black.opacity(0.25), radius: 12, y: 6)
     }
 
@@ -174,9 +199,9 @@ struct ProfileView: View {
 
     @ViewBuilder
     private var signInSection: some View {
-        if profile.isSignedInWithApple {
+        if profile.isSignedIn {
             HStack {
-                Label("Signed in with Apple", systemImage: "checkmark.seal.fill")
+                Label("Signed in with \(profile.signedInProviders)", systemImage: "checkmark.seal.fill")
                     .foregroundStyle(.green)
                 Spacer()
                 Button("Sign Out", role: .destructive) {
@@ -197,6 +222,23 @@ struct ProfileView: View {
                 .frame(height: 48)
                 .clipShape(RoundedRectangle(cornerRadius: 12))
 
+                if GoogleAuth.isAvailable && GoogleAuth.isConfigured {
+                    Button {
+                        Task { await signInWithGoogle() }
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "g.circle.fill")
+                                .font(.title3)
+                            Text("Continue with Google")
+                                .font(.headline)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 44)
+                    }
+                    .buttonStyle(.bordered)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                }
+
                 VStack(spacing: 6) {
                     Text("By signing up you agree to the Terms of Service and Privacy Policy.")
                         .font(.caption2)
@@ -209,7 +251,7 @@ struct ProfileView: View {
                     }
                 }
 
-                Text("Optional — your profile and logbook live on this device either way. Signing in needs the Sign in with Apple capability enabled in project.yml plus a paid Apple Developer account (see README); without it this button reports an error and the app works normally. Google sign-in requires the GoogleSignIn SDK.")
+                Text("Optional — your profile and logbook live on this device either way. Apple sign-in needs its capability enabled in project.yml plus a paid Apple Developer account; Google needs the GoogleSignIn package and a client ID (both in the README).")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -218,16 +260,43 @@ struct ProfileView: View {
     }
 
     private func handleAppleSignIn(_ result: Result<ASAuthorization, Error>) {
-        guard case .success(let auth) = result,
-              let credential = auth.credential as? ASAuthorizationAppleIDCredential else { return }
-        var updated = profileStore.profile
-        updated.appleUserID = credential.user
-        if updated.name.isEmpty, let nameComponents = credential.fullName {
-            let name = [nameComponents.givenName, nameComponents.familyName]
-                .compactMap { $0 }.joined(separator: " ")
-            if !name.isEmpty { updated.name = name }
+        switch result {
+        case .success(let auth):
+            guard let credential = auth.credential as? ASAuthorizationAppleIDCredential else { return }
+            var updated = profileStore.profile
+            updated.appleUserID = credential.user
+            if updated.name.isEmpty, let nameComponents = credential.fullName {
+                let name = [nameComponents.givenName, nameComponents.familyName]
+                    .compactMap { $0 }.joined(separator: " ")
+                if !name.isEmpty { updated.name = name }
+            }
+            profileStore.profile = updated
+        case .failure(let error):
+            if let authError = error as? ASAuthorizationError, authError.code == .canceled {
+                return
+            }
+            signInErrorMessage = """
+            \(error.localizedDescription)
+
+            If this build doesn't have the Sign in with Apple capability \
+            (it's off by default so free Apple accounts can build), enable \
+            it per the README — it needs a paid Apple Developer account.
+            """
         }
-        profileStore.profile = updated
+    }
+
+    private func signInWithGoogle() async {
+        do {
+            let result = try await GoogleAuth.signIn()
+            var updated = profileStore.profile
+            updated.googleUserID = result.id
+            if updated.name.isEmpty, let name = result.name, !name.isEmpty {
+                updated.name = name
+            }
+            profileStore.profile = updated
+        } catch {
+            signInErrorMessage = error.localizedDescription
+        }
     }
 }
 

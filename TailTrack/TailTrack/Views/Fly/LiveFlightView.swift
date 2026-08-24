@@ -74,7 +74,11 @@ struct LiveFlightView: View {
         .padding(18)
         .background {
             ZStack(alignment: .topTrailing) {
-                Theme.heroGradient(for: tracker.phase)
+                if pro.isPro && tracker.phase == .enroute {
+                    Theme.proSky
+                } else {
+                    Theme.heroGradient(for: tracker.phase)
+                }
                 AircraftTopView(category: .category(for: tracker.flight?.typeCode ?? ""))
                     .fill(.white.opacity(0.07))
                     .frame(width: 170, height: 170)
@@ -83,6 +87,10 @@ struct LiveFlightView: View {
             }
             .clipShape(RoundedRectangle(cornerRadius: 22))
         }
+        .overlay(
+            RoundedRectangle(cornerRadius: 22)
+                .strokeBorder(Theme.proGold.opacity(pro.isPro ? 0.45 : 0), lineWidth: 1.5)
+        )
         .shadow(color: .black.opacity(0.25), radius: 12, y: 6)
     }
 

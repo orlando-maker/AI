@@ -42,10 +42,18 @@ struct PilotProfile: Codable {
     var homeAirportIdents: [String] = []
     var avatarFileName: String?
     var appleUserID: String?
+    var googleUserID: String?
     var ratings: [RatingEntry] = []
     var milestones: [TrainingMilestone] = TrainingMilestone.defaultSyllabus()
 
     var isSignedInWithApple: Bool { !(appleUserID ?? "").isEmpty }
+    var isSignedInWithGoogle: Bool { !(googleUserID ?? "").isEmpty }
+    var isSignedIn: Bool { isSignedInWithApple || isSignedInWithGoogle }
+
+    var signedInProviders: String {
+        [isSignedInWithApple ? "Apple" : nil, isSignedInWithGoogle ? "Google" : nil]
+            .compactMap { $0 }.joined(separator: " & ")
+    }
 
     var primaryHomeAirportIdent: String? { homeAirportIdents.first }
 
@@ -76,7 +84,7 @@ struct PilotProfile: Codable {
     // Custom decoding so profiles saved by older builds (single home
     // airport, no ratings or milestones) still load.
     enum CodingKeys: String, CodingKey {
-        case name, certificateLine, homeAirportIdents, avatarFileName, appleUserID, ratings, milestones
+        case name, certificateLine, homeAirportIdents, avatarFileName, appleUserID, googleUserID, ratings, milestones
     }
 
     private enum LegacyKeys: String, CodingKey {
@@ -92,6 +100,7 @@ struct PilotProfile: Codable {
         homeAirportIdents = try c.decodeIfPresent([String].self, forKey: .homeAirportIdents) ?? []
         avatarFileName = try c.decodeIfPresent(String.self, forKey: .avatarFileName)
         appleUserID = try c.decodeIfPresent(String.self, forKey: .appleUserID)
+        googleUserID = try c.decodeIfPresent(String.self, forKey: .googleUserID)
         ratings = try c.decodeIfPresent([RatingEntry].self, forKey: .ratings) ?? []
         milestones = try c.decodeIfPresent([TrainingMilestone].self, forKey: .milestones)
             ?? TrainingMilestone.defaultSyllabus()

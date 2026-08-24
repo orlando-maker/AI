@@ -6,6 +6,14 @@ options:
   xcodeVersion: "15.0"
   createIntermediateGroups: true
 
+# To enable Google Sign-In: uncomment this packages block AND the
+# GoogleSignIn dependency + GIDClientID/URL-scheme info entries in the
+# TailTrack target below, then re-run `xcodegen generate`. See README.
+# packages:
+#   GoogleSignIn:
+#     url: https://github.com/google/GoogleSignIn-iOS
+#     from: "7.1.0"
+
 targets:
   TailTrack:
     type: application
@@ -32,6 +40,15 @@ targets:
           - UIInterfaceOrientationPortraitUpsideDown
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
+        # Google Sign-In config — fill in your OAuth iOS client ID from
+        # console.cloud.google.com and uncomment (see README):
+        # GIDClientID: "YOUR_CLIENT_ID.apps.googleusercontent.com"
+        # CFBundleURLTypes:
+        #   - CFBundleURLSchemes:
+        #       - "com.googleusercontent.apps.YOUR_CLIENT_ID"
+    # dependencies:
+    #   - package: GoogleSignIn
+    #     product: GoogleSignIn
     # Sign in with Apple requires a PAID Apple Developer account — with a
     # free personal team the entitlement makes signing (and the whole build)
     # fail. Building with a paid team? Uncomment this block and re-run

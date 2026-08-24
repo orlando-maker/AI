@@ -30,6 +30,8 @@ final class LogbookStore {
         // Replace rather than duplicate if the same flight gets finalized twice.
         flights.removeAll { $0.id == flight.id }
         flights.insert(flight, at: 0)
+        // Imported historical entries land in date order, not import order.
+        flights.sort { $0.startedTracking > $1.startedTracking }
         save()
     }
 

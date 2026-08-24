@@ -12,6 +12,7 @@ struct FlightDetailView: View {
     @State private var showingPaywall = false
     @State private var gpxURL: URL?
     @State private var csvURL: URL?
+    @State private var shareCardURL: URL?
 
     var body: some View {
         ScrollView {
@@ -130,14 +131,19 @@ struct FlightDetailView: View {
             }
             if pro.isPro {
                 HStack(spacing: 12) {
+                    if let shareCardURL {
+                        ShareLink(item: shareCardURL) {
+                            Label("Share card", systemImage: "photo.badge.arrow.down")
+                        }
+                    }
                     if let gpxURL {
                         ShareLink(item: gpxURL) {
-                            Label("GPX track", systemImage: "square.and.arrow.up")
+                            Label("GPX", systemImage: "square.and.arrow.up")
                         }
                     }
                     if let csvURL {
                         ShareLink(item: csvURL) {
-                            Label("CSV data", systemImage: "tablecells")
+                            Label("CSV", systemImage: "tablecells")
                         }
                     }
                 }
@@ -162,5 +168,15 @@ struct FlightDetailView: View {
                                             contents: FlightExport.gpx(for: flight))
         csvURL = FlightExport.temporaryFile(named: base + ".csv",
                                             contents: FlightExport.csv(for: flight))
+
+        let renderer = ImageRenderer(content: FlightShareCard(flight: flight))
+        renderer.scale = 3
+        if let image = renderer.uiImage, let data = image.pngData() {
+            let url = FileManager.default.temporaryDirectory
+                .appendingPathComponent(base + "-card.png")
+            if (try? data.write(to: url, options: .atomic)) != nil {
+                shareCardURL = url
+            }
+        }
     }
 }

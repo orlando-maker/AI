@@ -9,6 +9,13 @@ struct FlightSetupView: View {
     @Environment(ProStore.self) private var pro
     @Environment(ProfileStore.self) private var profileStore
 
+    enum TrackMode: String, CaseIterable {
+        case personal = "My Plane"
+        case crew = "Crew / Airline"
+    }
+
+    @State private var mode: TrackMode = .personal
+    @State private var callsign = ""
     @State private var selectedAircraftID: UUID?
     @State private var departure: Airport?
     @State private var destination: Airport?
@@ -23,7 +30,21 @@ struct FlightSetupView: View {
 
     var body: some View {
         Form {
-            aircraftSection
+            Section {
+                Picker("Mode", selection: $mode) {
+                    ForEach(TrackMode.allCases, id: \.self) { mode in
+                        Text(mode.rawValue).tag(mode)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .listRowBackground(Color.clear)
+                .listRowInsets(EdgeInsets())
+            }
+            if mode == .personal {
+                aircraftSection
+            } else {
+                crewSection
+            }
             routeSection
             if let plan = planSummary {
                 planSection(plan)
@@ -100,6 +121,28 @@ struct FlightSetupView: View {
         }
     }
 
+    private var crewSection: some View {
+        Section {
+            HStack {
+                TextField("Callsign (e.g. DAL123)", text: $callsign)
+                    .textInputAutocapitalization(.characters)
+                    .autocorrectionDisabled()
+                if !pro.isPro {
+                    Text("PRO")
+                        .font(.caption2.weight(.heavy))
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Theme.proGold.opacity(0.2), in: Capsule())
+                        .foregroundStyle(Theme.proGold)
+                }
+            }
+        } header: {
+            Text("Airline flight")
+        } footer: {
+            Text("For flight crews and airline nerds: track any airline flight by its ICAO callsign — Delta 123 is DAL123, American is AAL, United UAL, Southwest SWA, JetBlue JBU, Alaska ASA. The aircraft type fills in automatically once it's found.")
+        }
+    }
+
     private var routeSection: some View {
         Section {
             airportRow(label: "From", airport: departure) { pickingDeparture = true }
@@ -173,11 +216,29 @@ struct FlightSetupView: View {
         }
     }
 
+    private var canStart: Bool {
+        switch mode {
+        case .personal: return selectedAircraft != nil
+        case .crew: return !callsign.trimmingCharacters(in: .whitespaces).isEmpty
+        }
+    }
+
     private var startSection: some View {
         Section {
             Button {
-                guard let plane = selectedAircraft else { return }
-                tracker.start(aircraft: plane, departure: departure, destination: destination)
+                switch mode {
+                case .personal:
+                    guard let plane = selectedAircraft else { return }
+                    tracker.start(aircraft: plane, departure: departure, destination: destination)
+                case .crew:
+                    guard pro.isPro else {
+                        showingPaywall = true
+                        return
+                    }
+                    tracker.startCrewFlight(callsign: callsign,
+                                            departure: departure,
+                                            destination: destination)
+                }
             } label: {
                 Label("Start Tracking", systemImage: "dot.radiowaves.left.and.right")
                     .font(.headline)
@@ -185,7 +246,7 @@ struct FlightSetupView: View {
             }
             .buttonStyle(.borderedProminent)
             .listRowInsets(EdgeInsets())
-            .disabled(selectedAircraft == nil)
+            .disabled(!canStart)
         } footer: {
             Text("Uses free community ADS-B networks (adsb.lol, adsb.fi, OpenSky). Coverage over remote terrain can be spotty — gaps fill in as the aircraft returns to coverage.")
         }
