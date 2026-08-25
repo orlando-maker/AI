@@ -198,6 +198,105 @@ struct ADSBClient {
         )
     }
 
+    // MARK: - Historical track (breadcrumb backfill)
+
+    /// Fetches the flight's trail so far, so joining a flight mid-air shows
+    /// the whole breadcrumb path and the true wheels-up time — not just the
+    /// points seen since tracking started. Tries the tar1090 trace files
+    /// that adsb.lol and adsb.fi publish, then OpenSky's track endpoint.
+    func historicalTrack(hex: String) async -> [TrackPoint] {
+        let h = hex.lowercased()
+        let subdir = String(h.suffix(2))
+        var urls: [URL] = []
+        for host in ["https://globe.adsb.lol", "https://globe.adsb.fi"] {
+            for kind in ["full", "recent"] {
+                if let url = URL(string: "\(host)/data/traces/\(subdir)/trace_\(kind)_\(h).json") {
+                    urls.append(url)
+                }
+            }
+        }
+        for url in urls {
+            if let points = try? await fetchTar1090Trace(url: url), points.count > 1 {
+                return points
+            }
+        }
+        if let points = try? await fetchOpenSkyTrack(hex: h), points.count > 1 {
+            return points
+        }
+        return []
+    }
+
+    /// tar1090 trace format: {"timestamp": base, "trace": [[secondsOffset,
+    /// lat, lon, alt_baro|"ground", gs, track, flags, verticalRate, …], …]}
+    private func fetchTar1090Trace(url: URL) async throws -> [TrackPoint] {
+        var request = URLRequest(url: url)
+        request.setValue("TailTrack iOS", forHTTPHeaderField: "User-Agent")
+        let (data, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode),
+              let root = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let base = (root["timestamp"] as? NSNumber)?.doubleValue,
+              let rows = root["trace"] as? [[Any]] else {
+            throw URLError(.cannotParseResponse)
+        }
+        var points: [TrackPoint] = []
+        points.reserveCapacity(rows.count)
+        for row in rows where row.count >= 6 {
+            guard let offset = (row[0] as? NSNumber)?.doubleValue,
+                  let lat = (row[1] as? NSNumber)?.doubleValue,
+                  let lon = (row[2] as? NSNumber)?.doubleValue else { continue }
+            var altitudeFt: Double?
+            var onGround = false
+            if let alt = (row[3] as? NSNumber)?.doubleValue {
+                altitudeFt = alt
+            } else if let text = row[3] as? String, text == "ground" {
+                onGround = true
+            }
+            points.append(TrackPoint(
+                time: Date(timeIntervalSince1970: base + offset),
+                latitude: lat,
+                longitude: lon,
+                altitudeFt: altitudeFt,
+                groundSpeedKt: (row[4] as? NSNumber)?.doubleValue,
+                trackDeg: (row[5] as? NSNumber)?.doubleValue,
+                verticalRateFpm: row.count > 7 ? (row[7] as? NSNumber)?.doubleValue : nil,
+                onGround: onGround
+            ))
+        }
+        return points
+    }
+
+    /// OpenSky /tracks: {"path": [[time, lat, lon, baroAltMeters, track,
+    /// onGround], …]} — sparser waypoints, still a real trail.
+    private func fetchOpenSkyTrack(hex: String) async throws -> [TrackPoint] {
+        guard let url = URL(string: "https://opensky-network.org/api/tracks/all?icao24=\(hex)&time=0") else {
+            throw URLError(.badURL)
+        }
+        let (data, response) = try await session.data(from: url)
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode),
+              let root = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let path = root["path"] as? [[Any]] else {
+            throw URLError(.cannotParseResponse)
+        }
+        var points: [TrackPoint] = []
+        for row in path where row.count >= 6 {
+            guard let time = (row[0] as? NSNumber)?.doubleValue,
+                  let lat = (row[1] as? NSNumber)?.doubleValue,
+                  let lon = (row[2] as? NSNumber)?.doubleValue else { continue }
+            let onGround = (row[5] as? NSNumber)?.boolValue ?? false
+            points.append(TrackPoint(
+                time: Date(timeIntervalSince1970: time),
+                latitude: lat,
+                longitude: lon,
+                altitudeFt: onGround ? nil : (row[3] as? NSNumber).map { $0.doubleValue * 3.28084 },
+                groundSpeedKt: nil,
+                trackDeg: (row[4] as? NSNumber)?.doubleValue,
+                verticalRateFpm: nil,
+                onGround: onGround
+            ))
+        }
+        return points
+    }
+
     // MARK: - OpenSky fallback
 
     /// Anonymous OpenSky state vector. The response is a heterogeneous JSON

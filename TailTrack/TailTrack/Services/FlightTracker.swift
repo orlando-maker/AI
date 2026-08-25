@@ -47,6 +47,7 @@ final class FlightTracker {
     private var consecutiveGroundSamples = 0
     private var wasAirborne = false
     private var lastRecordedPointTime: Date?
+    private var didBackfillHistory = false
     private let client = ADSBClient()
 
     // Landing is declared after this many consecutive on-ground samples.
@@ -70,6 +71,7 @@ final class FlightTracker {
         consecutiveGroundSamples = 0
         wasAirborne = false
         lastRecordedPointTime = nil
+        didBackfillHistory = false
         latest = nil
         statusDetail = "Contacting ADS-B networks…"
 
@@ -100,6 +102,7 @@ final class FlightTracker {
         consecutiveGroundSamples = 0
         wasAirborne = false
         lastRecordedPointTime = nil
+        didBackfillHistory = false
         latest = nil
         statusDetail = "Contacting ADS-B networks…"
 
@@ -166,12 +169,58 @@ final class FlightTracker {
             guard !Task.isCancelled else { return }
             if let snap {
                 handle(snap)
+                await backfillHistoryIfNeeded()
             } else {
                 handleNotSeen()
             }
         } catch {
             statusDetail = error.localizedDescription
         }
+    }
+
+    /// Joining a flight already in the air: pull the trail flown so far
+    /// (breadcrumbs) from the networks' trace archives, so the map shows the
+    /// whole flight and wheels-up/distance reflect the real departure, not
+    /// the moment tracking started.
+    private func backfillHistoryIfNeeded() async {
+        guard !didBackfillHistory, wasAirborne,
+              let hex = discoveredHex, !hex.isEmpty else { return }
+        didBackfillHistory = true
+
+        let history = await client.historicalTrack(hex: hex)
+        guard !history.isEmpty, var updated = flight else { return }
+
+        let cutoff = updated.track.first?.time ?? Date()
+        var older = history.filter { $0.time < cutoff }.sorted { $0.time < $1.time }
+
+        // A full-day trace can contain earlier flights; keep only from the
+        // most recent on-ground period onward (this flight's taxi-out).
+        if let lastGroundIndex = older.lastIndex(where: { $0.onGround }) {
+            older = Array(older[lastGroundIndex...])
+        }
+        guard older.count > 1 else { return }
+
+        // Thin very dense traces so the saved flight stays light.
+        if older.count > 1500 {
+            let step = older.count / 1500 + 1
+            older = older.enumerated().compactMap { $0.offset % step == 0 ? $0.element : nil }
+        }
+
+        updated.track = older + updated.track
+
+        // True wheels-up: the first airborne point after the last on-ground
+        // point; if the trace starts already airborne, the earliest point
+        // known is the best available estimate.
+        if let lastGround = updated.track.lastIndex(where: { $0.onGround }),
+           lastGround + 1 < updated.track.count {
+            updated.takeoffTime = updated.track[lastGround + 1].time
+        } else if let first = updated.track.first, !first.onGround {
+            updated.takeoffTime = min(updated.takeoffTime ?? first.time, first.time)
+        }
+
+        flight = updated
+        autoFillDeparture()
+        statusDetail = "Live · flight history loaded"
     }
 
     private func handle(_ snap: ADSBSnapshot) {
