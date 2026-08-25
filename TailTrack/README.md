@@ -39,6 +39,15 @@ pattern session at your home field.
   home airport, primary aircraft — plus **training milestones** (first solo,
   solo XC, checkride…) and a **ratings/endorsements** list (type ratings,
   high performance, tailwheel, anything).
+- **Flight texts**: add people in your profile (Mom, CFI, whoever) and at
+  wheels-up and landing the app preps the message — "Just took off from
+  KSQL in N123AB, headed to KPAO ✈️" — one tap to send. (iOS never
+  allows apps to send texts silently, so one tap is the legal maximum.)
+- **Achievements**: badge wall for milestones (first flight, cross-country,
+  10,000 ft, airport explorer…). Works locally out of the box; connect
+  Game Center to mirror badges to your Apple Games profile. For the App
+  Store build, define the achievement IDs from `Achievements.swift` under
+  Game Center in App Store Connect.
 - **Sign in with Apple** (optional — everything works local-first).
 - **Aircraft photos**: upload a shot of your plane, or tap **Find Open
   Photo** to search Openverse for CC0/public-domain images (no credit
