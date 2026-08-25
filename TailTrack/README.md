@@ -109,12 +109,14 @@ testing.
 
 ### Sign in with Apple
 **Off by default so the project builds on a free Apple ID** — the
-capability requires a paid Apple Developer account, and with a free
-personal team it fails signing (and the whole build). To enable it with a
-paid team: uncomment the `entitlements:` block in `project.yml`, run
-`xcodegen generate` again, and rebuild. Without it, the sign-in button
-reports an error when tapped and everything else works — the profile is
-local-first either way.
+capability requires a paid Apple Developer account (and Apple requires
+you to be 18+ to enroll; under 18, a parent or guardian can enroll and
+the app ships under their account). With a free personal team the
+entitlement fails signing, so it stays disabled and the sign-in button
+is hidden entirely — the profile is local-first and nothing in the app
+needs an account. To enable with a paid team: in `project.yml` uncomment
+both the `entitlements:` block and the `TTAppleSignInEnabled` info key,
+run `xcodegen generate`, and rebuild — the button appears automatically.
 ### Google Sign-In
 The code is fully wired — the button appears automatically once you
 enable it (about 10 minutes):

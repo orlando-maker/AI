@@ -40,6 +40,9 @@ targets:
           - UIInterfaceOrientationPortraitUpsideDown
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
+        # Uncomment together with the Sign in with Apple entitlements block
+        # below — it makes the in-app Apple sign-in button appear:
+        # TTAppleSignInEnabled: true
         # Google Sign-In config — fill in your OAuth iOS client ID from
         # console.cloud.google.com and uncomment (see README):
         # GIDClientID: "YOUR_CLIENT_ID.apps.googleusercontent.com"
