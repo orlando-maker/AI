@@ -48,6 +48,7 @@ final class FlightTracker {
     private var wasAirborne = false
     private var lastRecordedPointTime: Date?
     private var didBackfillHistory = false
+    private var backfillAttempts = 0
     private let client = ADSBClient()
 
     // Landing is declared after this many consecutive on-ground samples.
@@ -72,6 +73,7 @@ final class FlightTracker {
         wasAirborne = false
         lastRecordedPointTime = nil
         didBackfillHistory = false
+        backfillAttempts = 0
         latest = nil
         statusDetail = "Contacting ADS-B networks…"
 
@@ -91,18 +93,44 @@ final class FlightTracker {
         }
     }
 
-    /// Crew mode: follow an airline flight by its ICAO callsign (DAL123,
-    /// AAL456…). Same engine, no aircraft profile needed.
+    /// Common IATA airline codes → the ICAO prefix that ADS-B callsigns
+    /// actually use, so "AA776" finds AAL776 without the user knowing the
+    /// difference.
+    private static let iataToICAOAirline: [String: String] = [
+        "AA": "AAL", "DL": "DAL", "UA": "UAL", "WN": "SWA", "B6": "JBU",
+        "AS": "ASA", "NK": "NKS", "F9": "FFT", "HA": "HAL", "G4": "AAY",
+        "SY": "SCX", "AC": "ACA", "WS": "WJA", "AM": "AMX", "AV": "AVA",
+        "CM": "CMP", "BA": "BAW", "VS": "VIR", "LH": "DLH", "AF": "AFR",
+        "KL": "KLM", "IB": "IBE", "AY": "FIN", "EI": "EIN", "TK": "THY",
+        "EK": "UAE", "QR": "QTR", "QF": "QFA", "NZ": "ANZ", "SQ": "SIA",
+        "CX": "CPA", "JL": "JAL", "NH": "ANA", "KE": "KAL", "OZ": "AAR",
+    ]
+
+    static func normalizeCallsign(_ raw: String) -> String {
+        let s = raw.uppercased().replacingOccurrences(of: " ", with: "")
+        guard s.count >= 3 else { return s }
+        let prefix = String(s.prefix(2))
+        let rest = String(s.dropFirst(2))
+        if let icao = iataToICAOAirline[prefix], rest.first?.isNumber == true {
+            return icao + rest
+        }
+        return s
+    }
+
+    /// Crew mode: follow an airline flight by callsign (DAL123, AAL456) or
+    /// plain flight number (AA776, DL123). Same engine, no aircraft
+    /// profile needed.
     func startCrewFlight(callsign: String, departure: Airport?, destination: Airport?) {
         cancelPolling()
         aircraft = nil
-        let normalized = callsign.uppercased().replacingOccurrences(of: " ", with: "")
+        let normalized = Self.normalizeCallsign(callsign)
         targetCallsign = normalized
         discoveredHex = nil
         consecutiveGroundSamples = 0
         wasAirborne = false
         lastRecordedPointTime = nil
         didBackfillHistory = false
+        backfillAttempts = 0
         latest = nil
         statusDetail = "Contacting ADS-B networks…"
 
@@ -153,7 +181,12 @@ final class FlightTracker {
         while !Task.isCancelled {
             await poll()
             if phase == .arrived || phase == .signalLost || Task.isCancelled { break }
-            let seconds: Double = (phase == .enroute) ? 8 : 15
+            let seconds: Double
+            switch phase {
+            case .searching: seconds = 5   // find the aircraft fast
+            case .enroute: seconds = 8
+            default: seconds = 15
+            }
             try? await Task.sleep(for: .seconds(seconds))
         }
     }
@@ -185,10 +218,17 @@ final class FlightTracker {
     private func backfillHistoryIfNeeded() async {
         guard !didBackfillHistory, wasAirborne,
               let hex = discoveredHex, !hex.isEmpty else { return }
-        didBackfillHistory = true
+        backfillAttempts += 1
 
         let history = await client.historicalTrack(hex: hex)
-        guard !history.isEmpty, var updated = flight else { return }
+        if history.isEmpty {
+            // Network hiccup or archive briefly missing — retry on the next
+            // few polls before giving up on the trail.
+            if backfillAttempts >= 4 { didBackfillHistory = true }
+            return
+        }
+        didBackfillHistory = true
+        guard var updated = flight else { return }
 
         let cutoff = updated.track.first?.time ?? Date()
         var older = history.filter { $0.time < cutoff }.sorted { $0.time < $1.time }

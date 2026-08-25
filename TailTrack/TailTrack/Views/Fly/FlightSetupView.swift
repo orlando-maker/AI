@@ -162,7 +162,7 @@ struct FlightSetupView: View {
         } header: {
             Text("Airline flight")
         } footer: {
-            Text("For flight crews and airline nerds: track any airline flight by its ICAO callsign — Delta 123 is DAL123, American is AAL, United UAL, Southwest SWA, JetBlue JBU, Alaska ASA. The aircraft type fills in automatically once it's found.")
+            Text("Type the flight number as you know it — AA776, DL123, WN2011 — or the ICAO callsign (AAL776); both work. The aircraft type and the flown trail so far fill in automatically once it's found.")
         }
     }
 

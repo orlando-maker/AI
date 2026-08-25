@@ -3,6 +3,7 @@ import SwiftUI
 struct RootView: View {
     @Environment(AirportStore.self) private var airports
     @AppStorage(LegalDocuments.acceptedVersionKey) private var acceptedLegalVersion = 0
+    @AppStorage(AppearanceSetting.storageKey) private var appearanceRaw = AppearanceSetting.system.rawValue
 
     var body: some View {
         TabView {
@@ -22,6 +23,7 @@ struct RootView: View {
                 .tabItem { Label("Settings", systemImage: "gearshape") }
         }
         .fontDesign(.rounded)
+        .preferredColorScheme(AppearanceSetting(rawValue: appearanceRaw)?.colorScheme)
         .onOpenURL { GoogleAuth.handle(url: $0) }
         .fullScreenCover(isPresented: Binding(
             get: { acceptedLegalVersion < LegalDocuments.version },

@@ -5,10 +5,12 @@ struct SettingsView: View {
     @Environment(ProStore.self) private var pro
 
     @State private var showingPaywall = false
+    @AppStorage(AppearanceSetting.storageKey) private var appearanceRaw = AppearanceSetting.system.rawValue
 
     var body: some View {
         NavigationStack {
             Form {
+                appearanceSection
                 proSection
                 airportSection
                 dataSourcesSection
@@ -19,6 +21,17 @@ struct SettingsView: View {
             }
             .navigationTitle("Settings")
             .sheet(isPresented: $showingPaywall) { PaywallView() }
+        }
+    }
+
+    private var appearanceSection: some View {
+        Section("Appearance") {
+            Picker("Theme", selection: $appearanceRaw) {
+                ForEach(AppearanceSetting.allCases) { setting in
+                    Text(setting.label).tag(setting.rawValue)
+                }
+            }
+            .pickerStyle(.segmented)
         }
     }
 

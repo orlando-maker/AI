@@ -43,30 +43,57 @@ struct ADSBClient {
 
     init() {
         let config = URLSessionConfiguration.ephemeral
-        config.timeoutIntervalForRequest = 12
+        // Short timeout: a slow source shouldn't stall the search — the
+        // sources are queried in parallel and the fastest answer wins.
+        config.timeoutIntervalForRequest = 6
         config.requestCachePolicy = .reloadIgnoringLocalCacheData
         session = URLSession(configuration: config)
     }
 
     /// Looks up the aircraft by Mode S hex if known, else by airline
-    /// callsign (crew mode), else by registration. Returns nil when the
-    /// sources are reachable but the aircraft isn't currently broadcasting;
-    /// throws when no source could be reached.
+    /// callsign (crew mode), else by registration. Both community sources
+    /// are queried in parallel and the first live answer wins. Returns nil
+    /// when the sources are reachable but the aircraft isn't currently
+    /// broadcasting; throws when no source could be reached.
     func snapshot(hex: String?, registration: String?, callsign: String? = nil) async throws -> ADSBSnapshot? {
+        enum Outcome {
+            case found(ADSBSnapshot)
+            case notBroadcasting
+            case failed(String)
+        }
+
         var failures: [String] = []
         var sawEmptyResult = false
 
-        for source in Self.v2Sources {
-            guard let url = source.url(hex: hex, registration: registration, callsign: callsign) else { continue }
-            do {
-                if let snap = try await fetchV2(url: url, sourceName: source.name) {
-                    return snap
+        let raced: ADSBSnapshot? = await withTaskGroup(of: Outcome.self) { group in
+            for source in Self.v2Sources {
+                guard let url = source.url(hex: hex, registration: registration, callsign: callsign) else { continue }
+                let name = source.name
+                group.addTask {
+                    do {
+                        if let snap = try await self.fetchV2(url: url, sourceName: name) {
+                            return .found(snap)
+                        }
+                        return .notBroadcasting
+                    } catch {
+                        return .failed("\(name): \(error.localizedDescription)")
+                    }
                 }
-                sawEmptyResult = true
-            } catch {
-                failures.append("\(source.name): \(error.localizedDescription)")
             }
+            for await outcome in group {
+                switch outcome {
+                case .found(let snap):
+                    group.cancelAll()
+                    return snap
+                case .notBroadcasting:
+                    sawEmptyResult = true
+                case .failed(let message):
+                    failures.append(message)
+                }
+            }
+            return nil
         }
+        if let raced { return raced }
 
         if let hex, !hex.isEmpty {
             do {

@@ -53,6 +53,31 @@ enum Theme {
     }
 }
 
+/// User-selectable appearance: follow the system, or force light/dark.
+enum AppearanceSetting: String, CaseIterable, Identifiable {
+    case system, light, dark
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .system: return "System"
+        case .light: return "Light"
+        case .dark: return "Dark"
+        }
+    }
+
+    var colorScheme: ColorScheme? {
+        switch self {
+        case .system: return nil
+        case .light: return .light
+        case .dark: return .dark
+        }
+    }
+
+    static let storageKey = "appearancePreference"
+}
+
 extension View {
     /// Keeps card layouts a readable width on iPad instead of stretching
     /// edge to edge.
