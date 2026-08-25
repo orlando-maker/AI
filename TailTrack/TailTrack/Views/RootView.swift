@@ -35,9 +35,10 @@ struct RootView: View {
         }
         .task {
             // Fetch the full worldwide airport database (every US field down
-            // to private strips) on first launch; the bundled starter list
-            // keeps working if this fails offline.
-            if !airports.usingFullDatabase {
+            // to private strips) on first launch, and silently refresh it
+            // when the cached copy is more than a month old. A failed
+            // download keeps whatever data is already on the device.
+            if airports.cacheIsStale {
                 await airports.downloadFullDatabase()
             }
         }

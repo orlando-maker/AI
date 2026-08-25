@@ -80,7 +80,7 @@ struct SettingsView: View {
         } header: {
             Text("Airports")
         } footer: {
-            Text("Worldwide airport data from OurAirports (public domain, ~10 MB, cached on device). Includes every US field — from private strips and tiny GA fields like E16 or NV82 up to KATL and KSFO. Downloads automatically on first launch; use the button to retry or refresh.")
+            Text("Worldwide airport data from OurAirports (public domain, ~10 MB, cached on device). Includes every US field — from private strips and tiny GA fields like E16 or NV82 up to KATL and KSFO. Downloads automatically on first launch and refreshes itself monthly; the button forces an immediate update.")
         }
     }
 

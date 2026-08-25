@@ -35,6 +35,16 @@ final class AirportStore {
         return dir.appendingPathComponent("airports-full.json")
     }
 
+    /// True when the airport data should be (re)fetched: no full database
+    /// yet, or the cached copy is more than 30 days old. OurAirports gets
+    /// community updates continuously — new strips, renamed idents,
+    /// closures — so a monthly silent refresh keeps codes current.
+    var cacheIsStale: Bool {
+        guard usingFullDatabase else { return true }
+        guard let lastUpdated else { return true }
+        return Date().timeIntervalSince(lastUpdated) > 30 * 86_400
+    }
+
     var statusDescription: String {
         if usingFullDatabase {
             let when = lastUpdated.map { " · updated \($0.formatted(date: .abbreviated, time: .omitted))" } ?? ""
