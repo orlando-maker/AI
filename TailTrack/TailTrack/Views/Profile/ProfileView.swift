@@ -16,6 +16,14 @@ struct ProfileView: View {
 
     private var profile: PilotProfile { profileStore.profile }
 
+    /// Apple sign-in surfaces only in builds where its capability is on
+    /// (paid developer account) — the TTAppleSignInEnabled flag is set in
+    /// project.yml alongside the entitlement. Everywhere else the button
+    /// would only ever produce error 1000, so it stays hidden.
+    private var appleSignInEnabled: Bool {
+        (Bundle.main.object(forInfoDictionaryKey: "TTAppleSignInEnabled") as? Bool) == true
+    }
+
     private var primaryHomeAirport: Airport? {
         profile.primaryHomeAirportIdent.flatMap { airports.lookup($0) }
     }
@@ -214,14 +222,16 @@ struct ProfileView: View {
             .background(.background, in: RoundedRectangle(cornerRadius: 14))
         } else {
             VStack(spacing: 10) {
-                SignInWithAppleButton(.continue) { request in
-                    request.requestedScopes = [.fullName]
-                } onCompletion: { result in
-                    handleAppleSignIn(result)
+                if appleSignInEnabled {
+                    SignInWithAppleButton(.continue) { request in
+                        request.requestedScopes = [.fullName]
+                    } onCompletion: { result in
+                        handleAppleSignIn(result)
+                    }
+                    .signInWithAppleButtonStyle(.black)
+                    .frame(height: 48)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
                 }
-                .signInWithAppleButtonStyle(.black)
-                .frame(height: 48)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
 
                 if GoogleAuth.isAvailable && GoogleAuth.isConfigured {
                     Button {
@@ -250,10 +260,15 @@ struct ProfileView: View {
                     }
                 }
 
+                let anySignInVisible = appleSignInEnabled ||
+                    (GoogleAuth.isAvailable && GoogleAuth.isConfigured)
+
                 VStack(spacing: 6) {
-                    Text("By signing up you agree to the Terms of Service and Privacy Policy.")
-                        .font(.caption2)
-                        .foregroundStyle(.tertiary)
+                    if anySignInVisible {
+                        Text("By signing up you agree to the Terms of Service and Privacy Policy.")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                    }
                     NavigationLink {
                         LegalView()
                     } label: {
@@ -262,7 +277,9 @@ struct ProfileView: View {
                     }
                 }
 
-                Text("Optional — your profile and logbook live on this device either way. Apple sign-in needs its capability enabled in project.yml plus a paid Apple Developer account; Google needs the GoogleSignIn package and a client ID (both in the README).")
+                Text(anySignInVisible
+                     ? "Optional — your profile and logbook live on this device either way. Signing in attaches an identity for future sync features."
+                     : "Your profile and logbook live safely on this device — no account needed. Sign-in options appear in builds made with a paid Apple Developer account (see README).")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
