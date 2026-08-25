@@ -6,16 +6,30 @@ import CoreLocation
 struct LiveFlightView: View {
     @Environment(FlightTracker.self) private var tracker
     @Environment(ProStore.self) private var pro
+    @Environment(ProfileStore.self) private var profileStore
 
     @State private var confirmingEnd = false
     @State private var hybridMap = false
     @State private var showingPaywall = false
     @State private var showingLandingSheet = false
+    @State private var textPayload: FlightTextPayload?
+    @State private var takeoffTextSent = false
+    @State private var landedTextSent = false
 
     var body: some View {
         ScrollView {
             VStack(spacing: 16) {
                 heroCard
+                if tracker.phase == .enroute, !takeoffTextSent, canText {
+                    flightTextButton(
+                        label: "Text that you're off",
+                        icon: "message.fill"
+                    ) {
+                        takeoffTextSent = true
+                        textPayload = FlightTextPayload(recipients: recipientPhones,
+                                                        body: takeoffMessage)
+                    }
+                }
                 statsGrid
                 mapCard
                 controls
@@ -25,6 +39,14 @@ struct LiveFlightView: View {
         }
         .background(Color(uiColor: .systemGroupedBackground))
         .sheet(isPresented: $showingPaywall) { PaywallView() }
+        .sheet(item: $textPayload) { payload in
+            MessageComposeView(recipients: payload.recipients, body: payload.body)
+                .ignoresSafeArea()
+        }
+        .onChange(of: tracker.flight?.id) { _, _ in
+            takeoffTextSent = false
+            landedTextSent = false
+        }
         .sheet(isPresented: $showingLandingSheet) {
             NavigationStack {
                 LandingDetailsSheet(
@@ -187,6 +209,16 @@ struct LiveFlightView: View {
         switch tracker.phase {
         case .arrived:
             VStack(spacing: 12) {
+                if !landedTextSent, canText {
+                    flightTextButton(
+                        label: "Text that you've landed",
+                        icon: "message.badge.filled.fill"
+                    ) {
+                        landedTextSent = true
+                        textPayload = FlightTextPayload(recipients: recipientPhones,
+                                                        body: landedMessage)
+                    }
+                }
                 if let f = tracker.flight, let time = f.flightTime {
                     Text(f.isMeaningful
                          ? "Flight complete — \(Format.duration(time)), \(Format.nm(f.distanceFlownNM)). Saved to your logbook."
@@ -247,5 +279,66 @@ struct LiveFlightView: View {
             }
             .buttonStyle(.bordered)
         }
+    }
+
+    // MARK: - Flight texts (prepped, one tap to send)
+
+    private var recipients: [TextRecipient] {
+        profileStore.profile.flightTextRecipients.filter {
+            !$0.phone.trimmingCharacters(in: .whitespaces).isEmpty
+        }
+    }
+
+    private var recipientPhones: [String] { recipients.map(\.phone) }
+
+    private var canText: Bool {
+        !recipients.isEmpty && MessageComposeView.canSendText
+    }
+
+    private var greeting: String {
+        if recipients.count == 1, !recipients[0].name.isEmpty {
+            return "Hey \(recipients[0].name), "
+        }
+        return "Hey! "
+    }
+
+    private var takeoffMessage: String {
+        let dep = tracker.flight?.departure?.ident ?? "the airport"
+        let tail = tracker.flight?.tailNumber ?? "the plane"
+        var message = "\(greeting)I just took off from \(dep) in \(tail)"
+        if let dest = tracker.flight?.destination?.ident {
+            message += ", headed to \(dest)"
+        }
+        message += ". I'll text you when I'm on the ground. ✈️"
+        return message
+    }
+
+    private var landedMessage: String {
+        let arr = tracker.flight?.destination?.ident ?? "the airport"
+        return "\(greeting)just landed at \(arr) — safe on the ground! ✈️"
+    }
+
+    private func flightTextButton(label: String, icon: String,
+                                  action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack {
+                Image(systemName: icon)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(label)
+                        .font(.subheadline.weight(.semibold))
+                    Text(recipients.map { $0.name.isEmpty ? $0.phone : $0.name }
+                        .joined(separator: ", "))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(14)
+            .background(.background, in: RoundedRectangle(cornerRadius: 14))
+        }
+        .foregroundStyle(.primary)
     }
 }

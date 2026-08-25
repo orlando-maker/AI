@@ -32,6 +32,13 @@ struct TrainingMilestone: Codable, Identifiable, Hashable {
     }
 }
 
+/// Someone who gets the prepped "wheels up" / "landed safe" texts.
+struct TextRecipient: Codable, Identifiable, Hashable {
+    var id = UUID()
+    var name: String = ""
+    var phone: String = ""
+}
+
 /// The pilot's local profile card. Sign in with Apple attaches a stable
 /// user identifier; everything else lives on-device.
 struct PilotProfile: Codable {
@@ -45,6 +52,7 @@ struct PilotProfile: Codable {
     var googleUserID: String?
     var ratings: [RatingEntry] = []
     var milestones: [TrainingMilestone] = TrainingMilestone.defaultSyllabus()
+    var flightTextRecipients: [TextRecipient] = []
 
     var isSignedInWithApple: Bool { !(appleUserID ?? "").isEmpty }
     var isSignedInWithGoogle: Bool { !(googleUserID ?? "").isEmpty }
@@ -84,7 +92,7 @@ struct PilotProfile: Codable {
     // Custom decoding so profiles saved by older builds (single home
     // airport, no ratings or milestones) still load.
     enum CodingKeys: String, CodingKey {
-        case name, certificateLine, homeAirportIdents, avatarFileName, appleUserID, googleUserID, ratings, milestones
+        case name, certificateLine, homeAirportIdents, avatarFileName, appleUserID, googleUserID, ratings, milestones, flightTextRecipients
     }
 
     private enum LegacyKeys: String, CodingKey {
@@ -104,6 +112,7 @@ struct PilotProfile: Codable {
         ratings = try c.decodeIfPresent([RatingEntry].self, forKey: .ratings) ?? []
         milestones = try c.decodeIfPresent([TrainingMilestone].self, forKey: .milestones)
             ?? TrainingMilestone.defaultSyllabus()
+        flightTextRecipients = try c.decodeIfPresent([TextRecipient].self, forKey: .flightTextRecipients) ?? []
 
         // Migrate the old single home-airport field.
         if homeAirportIdents.isEmpty,

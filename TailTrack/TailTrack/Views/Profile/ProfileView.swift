@@ -9,9 +9,11 @@ struct ProfileView: View {
     @Environment(FleetStore.self) private var fleet
     @Environment(AirportStore.self) private var airports
     @Environment(ProStore.self) private var pro
+    @Environment(LogbookStore.self) private var logbook
 
     @State private var editing = false
     @State private var showingTraining = false
+    @State private var showingAchievements = false
     @State private var signInErrorMessage: String?
 
     private var profile: PilotProfile { profileStore.profile }
@@ -34,6 +36,7 @@ struct ProfileView: View {
                 VStack(spacing: 16) {
                     pilotCard
                     trainingCard
+                    achievementsCard
                     signInSection
                 }
                 .padding()
@@ -51,6 +54,9 @@ struct ProfileView: View {
             }
             .sheet(isPresented: $showingTraining) {
                 NavigationStack { TrainingView() }
+            }
+            .sheet(isPresented: $showingAchievements) {
+                NavigationStack { AchievementsView() }
             }
             .alert("Sign-in failed", isPresented: Binding(
                 get: { signInErrorMessage != nil },
@@ -197,6 +203,30 @@ struct ProfileView: View {
                         .foregroundStyle(Theme.proGold)
                         .lineLimit(2)
                 }
+            }
+            .padding(16)
+            .background(.background, in: RoundedRectangle(cornerRadius: 16))
+        }
+        .foregroundStyle(.primary)
+    }
+
+    // MARK: - Achievements card
+
+    private var achievementsCard: some View {
+        Button {
+            showingAchievements = true
+        } label: {
+            HStack {
+                Label("Achievements", systemImage: "rosette")
+                    .font(.headline)
+                Spacer()
+                let unlocked = AchievementCatalog.unlockedIDs(for: logbook.flights).count
+                Text("\(unlocked) of \(AchievementCatalog.all.count)")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Theme.proGold)
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
             }
             .padding(16)
             .background(.background, in: RoundedRectangle(cornerRadius: 16))
@@ -389,6 +419,32 @@ struct ProfileEditView: View {
                 Text("Home airports")
             } footer: {
                 Text("Add every field you fly from — flying clubs, rentals, your tiedown. Tap one to make it primary; swipe to remove.")
+            }
+            Section {
+                ForEach($draft.flightTextRecipients) { $recipient in
+                    HStack(spacing: 10) {
+                        TextField("Name (Mom)", text: $recipient.name)
+                        TextField("Phone", text: $recipient.phone)
+                            .keyboardType(.phonePad)
+                            .frame(maxWidth: 150)
+                        Button {
+                            draft.flightTextRecipients.removeAll { $0.id == recipient.id }
+                        } label: {
+                            Image(systemName: "minus.circle.fill")
+                                .foregroundStyle(.red)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                Button {
+                    draft.flightTextRecipients.append(TextRecipient())
+                } label: {
+                    Label("Add someone to text", systemImage: "message.badge.plus")
+                }
+            } header: {
+                Text("Flight texts")
+            } footer: {
+                Text("At wheels-up and landing, TailTrack preps a text to these people — \"Just took off from KSQL in N123AB, headed to KPAO\" — and you tap Send. (iOS doesn't let apps send texts by themselves.)")
             }
         }
         .navigationTitle("Edit Profile")
