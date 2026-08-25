@@ -19,9 +19,22 @@ struct AirportPickerView: View {
                 if !airports.usingFullDatabase {
                     Section {
                         VStack(alignment: .leading, spacing: 8) {
-                            Text("Using the built-in starter list. Download the full worldwide database (free, ~10 MB) in Settings to search every airport.")
+                            Text("Using the built-in starter list. The full worldwide database (free, ~10 MB) covers every field down to private strips.")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
+                            if airports.isDownloading {
+                                HStack(spacing: 8) {
+                                    ProgressView()
+                                    Text("Downloading…")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                            } else {
+                                Button("Download now") {
+                                    Task { await airports.downloadFullDatabase() }
+                                }
+                                .font(.caption.weight(.semibold))
+                            }
                         }
                     }
                 }

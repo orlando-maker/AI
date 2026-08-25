@@ -158,7 +158,9 @@ struct ADSBClient {
     }
 
     private func fetchV2(url: URL, sourceName: String) async throws -> ADSBSnapshot? {
-        let (data, response) = try await session.data(from: url)
+        var request = URLRequest(url: url)
+        request.setValue("TailTrack iOS", forHTTPHeaderField: "User-Agent")
+        let (data, response) = try await session.data(for: request)
         guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
             throw URLError(.badServerResponse)
         }
