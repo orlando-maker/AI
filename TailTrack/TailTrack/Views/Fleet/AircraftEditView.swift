@@ -158,6 +158,13 @@ struct AircraftEditView: View {
                 TextField("Type code (e.g. C152)", text: $aircraft.typeCode)
                     .textInputAutocapitalization(.characters)
                     .autocorrectionDisabled()
+                    .onChange(of: aircraft.typeCode) { _, newValue in
+                        // Typing a known type fills its book cruise speed —
+                        // the speed is on file for the type, not re-entered.
+                        if let preset = AircraftLibrary.preset(for: newValue) {
+                            aircraft.cruiseSpeedKt = preset.cruiseKt
+                        }
+                    }
             }
             Button {
                 pickingBase = true

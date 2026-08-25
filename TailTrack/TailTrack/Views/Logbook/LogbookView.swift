@@ -9,6 +9,8 @@ struct LogbookView: View {
     @State private var showingPaywall = false
     @State private var addingManualEntry = false
     @State private var scanningPage = false
+    @State private var logbookExportURL: URL?
+    @State private var showingExport = false
 
     var body: some View {
         NavigationStack {
@@ -60,6 +62,14 @@ struct LogbookView: View {
                             Label(pro.isPro ? "Scan Logbook Page" : "Scan Logbook Page (Pro)",
                                   systemImage: "doc.viewfinder")
                         }
+                        if !logbook.flights.isEmpty {
+                            Button {
+                                if pro.isPro { prepareLogbookExport() } else { showingPaywall = true }
+                            } label: {
+                                Label(pro.isPro ? "Export Logbook (CSV)" : "Export Logbook (Pro)",
+                                      systemImage: "square.and.arrow.up")
+                            }
+                        }
                     } label: {
                         Image(systemName: "plus")
                     }
@@ -72,7 +82,40 @@ struct LogbookView: View {
             .sheet(isPresented: $scanningPage) {
                 NavigationStack { LogbookScanView() }
             }
+            .sheet(isPresented: $showingExport) {
+                VStack(spacing: 16) {
+                    Image(systemName: "square.and.arrow.up")
+                        .font(.largeTitle)
+                        .foregroundStyle(.tint)
+                    Text("Logbook export ready")
+                        .font(.headline)
+                    Text("\(logbook.flights.count) flights as one CSV — opens in Numbers, Excel, or any logbook app.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                    if let logbookExportURL {
+                        ShareLink(item: logbookExportURL) {
+                            Label("Share CSV", systemImage: "square.and.arrow.up")
+                                .font(.headline)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 6)
+                        }
+                        .buttonStyle(.borderedProminent)
+                    }
+                }
+                .padding(28)
+                .presentationDetents([.medium])
+            }
         }
+    }
+
+    private func prepareLogbookExport() {
+        let day = Date().formatted(.iso8601.year().month().day())
+        logbookExportURL = FlightExport.temporaryFile(
+            named: "TailTrack-logbook-\(day).csv",
+            contents: FlightExport.logbookCSV(logbook.flights)
+        )
+        showingExport = logbookExportURL != nil
     }
 
     private var statsRow: some View {

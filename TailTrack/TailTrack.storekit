@@ -6,7 +6,7 @@
   "products" : [
     {
       "displayPrice" : "49.99",
-      "familyShareable" : false,
+      "familyShareable" : true,
       "internalID" : "6F1A2B3C-0000-4000-9000-000000000003",
       "localizations" : [
         {
@@ -46,7 +46,7 @@
 
           ],
           "displayPrice" : "2.99",
-          "familyShareable" : false,
+          "familyShareable" : true,
           "groupNumber" : 1,
           "internalID" : "6F1A2B3C-0000-4000-9000-000000000001",
           "introductoryOffer" : null,
@@ -71,7 +71,7 @@
 
           ],
           "displayPrice" : "19.99",
-          "familyShareable" : false,
+          "familyShareable" : true,
           "groupNumber" : 1,
           "internalID" : "6F1A2B3C-0000-4000-9000-000000000002",
           "introductoryOffer" : null,

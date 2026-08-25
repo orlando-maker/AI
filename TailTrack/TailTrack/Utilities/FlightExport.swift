@@ -55,6 +55,37 @@ enum FlightExport {
         return out
     }
 
+    /// One-row-per-flight CSV of the whole logbook — backup, spreadsheet,
+    /// or import into another logbook app.
+    static func logbookCSV(_ flights: [Flight]) -> String {
+        var out = "date,tail_number,type,from,to,takeoff,landing,flight_time_hours,distance_nm,max_altitude_ft,hobbs,tach,notes\n"
+        let dayFormat = Date.ISO8601FormatStyle().year().month().day()
+        for f in flights.sorted(by: { $0.startedTracking < $1.startedTracking }) {
+            let fields: [String] = [
+                f.startedTracking.formatted(dayFormat),
+                f.tailNumber,
+                f.typeCode,
+                f.departure?.ident ?? "",
+                f.destination?.ident ?? "",
+                f.takeoffTime.map { isoFormatter.string(from: $0) } ?? "",
+                f.landingTime.map { isoFormatter.string(from: $0) } ?? "",
+                f.flightTime.map { String(format: "%.2f", $0 / 3600) } ?? "",
+                String(format: "%.1f", f.track.isEmpty ? (f.routeDistanceNM ?? 0) : f.distanceFlownNM),
+                f.maxAltitudeFt.map { String(format: "%.0f", $0) } ?? "",
+                f.hobbsTime.map { String(format: "%.1f", $0) } ?? "",
+                f.tachTime.map { String(format: "%.1f", $0) } ?? "",
+                csvEscape(f.notes),
+            ]
+            out += fields.joined(separator: ",") + "\n"
+        }
+        return out
+    }
+
+    private static func csvEscape(_ value: String) -> String {
+        guard value.contains(",") || value.contains("\"") || value.contains("\n") else { return value }
+        return "\"" + value.replacingOccurrences(of: "\"", with: "\"\"") + "\""
+    }
+
     /// Writes export content to a temp file and returns its URL for ShareLink.
     static func temporaryFile(named name: String, contents: String) -> URL? {
         let url = FileManager.default.temporaryDirectory.appendingPathComponent(name)

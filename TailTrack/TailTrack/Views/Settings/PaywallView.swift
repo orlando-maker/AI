@@ -55,8 +55,9 @@ struct PaywallView: View {
             feature("person.2.fill", "Crew Mode", "Track any airline flight by callsign — DAL, AAL, UAL, and everyone else.")
             feature("chart.bar.fill", "Pilot Stats", "Hours by month, personal records, most-visited airports.")
             feature("doc.viewfinder", "Logbook page scanning", "Photograph your paper logbook — on-device recognition imports the entries.")
-            feature("square.and.arrow.up", "Exports & share cards", "GPX, CSV, and beautiful shareable flight cards.")
+            feature("square.and.arrow.up", "Exports & share cards", "GPX and CSV per flight, your whole logbook as one CSV, and shareable flight cards.")
             feature("globe.americas.fill", "Satellite maps", "Hybrid satellite imagery with realistic terrain on the live map.")
+            feature("person.3.fill", "Family Sharing", "One purchase covers everyone in your family group.")
         }
         .padding(18)
         .background(.background, in: RoundedRectangle(cornerRadius: 18))

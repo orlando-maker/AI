@@ -63,9 +63,13 @@ pattern session at your home field.
   on-device Vision OCR extracts candidate entries (date, tail, route,
   hours) for review before import. No cloud, no API key. (Typing entries
   in manually is free for everyone.)
-- GPX & CSV export plus a shareable flight-summary image card.
+- GPX & CSV export per flight, the **whole logbook as one CSV**
+  (Logbook → + → Export Logbook), plus a shareable flight-summary card.
 - Satellite/hybrid live map with realistic terrain.
 - Pro visual theme: midnight-indigo gradients with gold trim.
+- **Family Sharing enabled** on all three products (also flip the Family
+  Sharing switch on each product in App Store Connect) — one purchase
+  covers the household, which makes the yearly price an easy yes.
 
 Suggested pricing (configured in `TailTrack.storekit` and App Store
 Connect): **$2.99/month**, **$19.99/year** (highlighted as best value),
