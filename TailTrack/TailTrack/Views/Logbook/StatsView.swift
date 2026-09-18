@@ -41,10 +41,15 @@ struct StatsView: View {
         logbook.flights.max { $0.distanceFlownNM < $1.distanceFlownNM }
     }
 
+    @State private var showingWrapped = false
+
     var body: some View {
         ScrollView {
             VStack(spacing: 16) {
                 yearCard
+                if !thisYearFlights.isEmpty {
+                    wrappedButton
+                }
                 monthlyChartCard
                 if !topAirports.isEmpty { airportsCard }
                 recordsCard
@@ -55,6 +60,39 @@ struct StatsView: View {
         .background(Color(uiColor: .systemGroupedBackground))
         .navigationTitle("Pilot Stats")
         .navigationBarTitleDisplayMode(.inline)
+        .fullScreenCover(isPresented: $showingWrapped) {
+            YearWrappedView(year: calendar.component(.year, from: Date()),
+                            flights: thisYearFlights)
+        }
+    }
+
+    private var wrappedButton: some View {
+        Button {
+            showingWrapped = true
+        } label: {
+            HStack {
+                Text("🎁")
+                    .font(.title2)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("\(calendar.component(.year, from: Date())) in the Air")
+                        .font(.headline)
+                    Text("Your year, wrapped — swipe through and share it")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(14)
+            .background(.background, in: RoundedRectangle(cornerRadius: 16))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .strokeBorder(Theme.proGold.opacity(0.4), lineWidth: 1.5)
+            )
+        }
+        .foregroundStyle(.primary)
     }
 
     private var yearCard: some View {

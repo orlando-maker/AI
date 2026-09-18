@@ -34,6 +34,13 @@ struct Flight: Codable, Identifiable {
     /// Optional engine times logged at shutdown (Hobbs / tach reading).
     var hobbsTime: Double?
     var tachTime: Double?
+    /// Set when the flight diverted: the destination that was planned.
+    var plannedDestinationIdent: String?
+    /// METARs captured at landing so the flight keeps its weather forever.
+    var departureMetar: String?
+    var arrivalMetar: String?
+    /// Pilot-confirmed landing count (touch-and-gos included).
+    var landingsCount: Int?
 
     // MARK: - Derived stats
 

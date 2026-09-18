@@ -6,7 +6,6 @@ struct FleetView: View {
     @Environment(FleetStore.self) private var fleet
     @Environment(ProStore.self) private var pro
 
-    @State private var editingAircraft: Aircraft?
     @State private var addingAircraft = false
     @State private var showingPaywall = false
 
@@ -14,12 +13,11 @@ struct FleetView: View {
         NavigationStack {
             List {
                 ForEach(fleet.aircraft) { plane in
-                    Button {
-                        editingAircraft = plane
+                    NavigationLink {
+                        AircraftHistoryView(plane: plane)
                     } label: {
                         AircraftRow(plane: plane)
                     }
-                    .foregroundStyle(.primary)
                 }
                 .onDelete { fleet.delete(at: $0) }
 
@@ -48,11 +46,6 @@ struct FleetView: View {
             .sheet(isPresented: $addingAircraft) {
                 NavigationStack {
                     AircraftEditView(aircraft: Aircraft()) { fleet.add($0) }
-                }
-            }
-            .sheet(item: $editingAircraft) { plane in
-                NavigationStack {
-                    AircraftEditView(aircraft: plane, isEditing: true) { fleet.update($0) }
                 }
             }
             .sheet(isPresented: $showingPaywall) { PaywallView() }
@@ -86,9 +79,6 @@ private struct AircraftRow: View {
                 .foregroundStyle(.tertiary)
             }
             Spacer()
-            Image(systemName: "chevron.right")
-                .font(.caption)
-                .foregroundStyle(.tertiary)
         }
         .padding(.vertical, 4)
     }

@@ -35,6 +35,29 @@ pattern session at your home field.
   (diversions get noted, Flighty-style).
 - **Logbook** with per-flight map, stats, and notes; totals for time and
   distance.
+- **Flight replay**: black-box playback of any saved flight — press play
+  or scrub, watch the plane move along the track while altitude, speed,
+  and vertical rate read out live; the altitude profile below is
+  tappable (touch the climb, the plane jumps there).
+- **Flight story**: an auto-written summary of every flight ("departed
+  San Carlos at 9:12 AM, climbed to 4,500 ft, flew 62 nm…"), shareable
+  with one tap.
+- **Weather kept with the flight**: departure and arrival METARs freeze
+  into the flight at landing, so months later it still shows the sky it
+  was flown in.
+- **Landing & pattern detection**: repeated circuits show as "pattern
+  work at KSQL" with a counted-landings suggestion the pilot confirms —
+  recorded data, never silent logbook entries, never instruction.
+- **Diversions recorded, not overwritten**: planned KSBP, landed KMRY →
+  both stay in the flight's history.
+- **Airport Passport**: every field you've visited as a stamp collection
+  (visits, first date, aircraft flown there) plus the all-time spiderweb
+  map of every track, filterable by year and aircraft.
+- **Aircraft history**: tap any plane in the hangar for its lifetime
+  hours, records, most-flown route, and combined track map.
+- **Flight Memories**: "one year ago today" cards in the logbook.
+- **TailTrack Wrapped**: a swipeable year-in-review story with a
+  shareable card. No practical purpose. That's the point.
 - **Pilot profile card**: photo, name, certificate line ("STUDENT PPL"),
   home airport, primary aircraft — plus **training milestones** (first solo,
   solo XC, checkride…) and a **ratings/endorsements** list (type ratings,

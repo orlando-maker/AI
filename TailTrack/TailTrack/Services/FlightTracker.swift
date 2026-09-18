@@ -156,6 +156,7 @@ final class FlightTracker {
         if var f = flight, f.isMeaningful {
             if f.landingTime == nil { f.landingTime = f.track.last?.time ?? Date() }
             logbook?.add(f)
+            captureWeather(for: f)
         }
         reset()
     }
@@ -412,6 +413,8 @@ final class FlightTracker {
         if let actual = airports?.nearest(to: coordinate) {
             if let planned = flight?.destination {
                 if planned.ident != actual.ident {
+                    // Diversion: keep the plan on record, log the reality.
+                    flight?.plannedDestinationIdent = planned.ident
                     flight?.notes = "Landed at \(actual.ident) (planned \(planned.ident))."
                     flight?.destination = actual
                 }
@@ -427,6 +430,29 @@ final class FlightTracker {
 
         if let f = flight, f.isMeaningful {
             logbook?.add(f)
+            captureWeather(for: f)
+        }
+    }
+
+    /// Freezes the departure and arrival METARs into the flight, so months
+    /// later it still shows the weather it was actually flown in.
+    private func captureWeather(for flight: Flight) {
+        let depIdent = flight.departure?.ident
+        let arrIdent = flight.destination?.ident
+        let idents = [depIdent, arrIdent].compactMap { $0 }
+        guard !idents.isEmpty else { return }
+        let flightID = flight.id
+
+        Task { [weak self] in
+            let metars = await WeatherService().metars(for: idents)
+            guard let self, !metars.isEmpty else { return }
+            let dep = metars.first { $0.ident == depIdent }?.raw
+            let arr = metars.first { $0.ident == arrIdent }?.raw
+            self.logbook?.attachWeather(flightID: flightID, departure: dep, arrival: arr)
+            if self.flight?.id == flightID {
+                self.flight?.departureMetar = dep
+                self.flight?.arrivalMetar = arr
+            }
         }
     }
 

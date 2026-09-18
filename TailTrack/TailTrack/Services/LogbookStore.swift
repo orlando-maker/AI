@@ -51,6 +51,19 @@ final class LogbookStore {
         save()
     }
 
+    func attachWeather(flightID: UUID, departure: String?, arrival: String?) {
+        guard let idx = flights.firstIndex(where: { $0.id == flightID }) else { return }
+        if let departure { flights[idx].departureMetar = departure }
+        if let arrival { flights[idx].arrivalMetar = arrival }
+        save()
+    }
+
+    func updateLandings(for flightID: UUID, landings: Int) {
+        guard let idx = flights.firstIndex(where: { $0.id == flightID }) else { return }
+        flights[idx].landingsCount = max(0, landings)
+        save()
+    }
+
     private func load() {
         guard let data = try? Data(contentsOf: Self.fileURL),
               let decoded = try? JSONDecoder().decode([Flight].self, from: data) else { return }

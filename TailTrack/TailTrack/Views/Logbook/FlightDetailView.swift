@@ -13,13 +13,23 @@ struct FlightDetailView: View {
     @State private var gpxURL: URL?
     @State private var csvURL: URL?
     @State private var shareCardURL: URL?
+    @State private var suggestedLandings = 0
+    @State private var confirmedLandings: Int?
 
     var body: some View {
         ScrollView {
             VStack(spacing: 16) {
                 summaryCard
-                map
+                FlightReplaySection(flight: flight)
+                storyCard
+                if flight.landingsCount == nil && confirmedLandings == nil
+                    && flight.detectedLandings >= 2 {
+                    landingsSuggestionCard
+                }
                 statsGrid
+                if flight.departureMetar != nil || flight.arrivalMetar != nil {
+                    weatherCard
+                }
                 notesCard
                 exportCard
             }
@@ -32,6 +42,7 @@ struct FlightDetailView: View {
         .sheet(isPresented: $showingPaywall) { PaywallView() }
         .onAppear {
             notes = flight.notes
+            suggestedLandings = flight.detectedLandings
             if pro.isPro { prepareExports() }
         }
         .onChange(of: pro.isPro) { _, isPro in
@@ -71,18 +82,69 @@ struct FlightDetailView: View {
         .shadow(color: .black.opacity(0.2), radius: 10, y: 5)
     }
 
-    private var map: some View {
-        FlightMapView(
-            track: flight.track,
-            departure: flight.departure,
-            destination: flight.destination,
-            currentPosition: nil,
-            currentTrackDeg: nil,
-            tailNumber: flight.tailNumber
-        )
-        .frame(height: 300)
-        .clipShape(RoundedRectangle(cornerRadius: 22))
-        .shadow(color: .black.opacity(0.15), radius: 8, y: 4)
+    private var storyCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("Flight story")
+                    .font(.headline)
+                Spacer()
+                ShareLink(item: flight.story) {
+                    Image(systemName: "square.and.arrow.up")
+                        .font(.callout)
+                }
+            }
+            Text(flight.story)
+                .font(.callout)
+                .textSelection(.enabled)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.background, in: RoundedRectangle(cornerRadius: 16))
+    }
+
+    private var landingsSuggestionCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label(flight.isLikelyPatternWork
+                  ? "Looks like pattern work at \(flight.destination?.ident ?? "the field")"
+                  : "Multiple landings detected",
+                  systemImage: "arrow.triangle.2.circlepath")
+                .font(.headline)
+            Text("TailTrack counted \(flight.detectedLandings) landings from the track. ADS-B gets patchy at pattern altitude, so confirm the number before it's recorded — this is your data, not instruction.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            HStack {
+                Stepper("Landings: \(suggestedLandings)", value: $suggestedLandings, in: 1...50)
+                    .font(.callout)
+                Button("Confirm") {
+                    logbook.updateLandings(for: flight.id, landings: suggestedLandings)
+                    confirmedLandings = suggestedLandings
+                }
+                .buttonStyle(.borderedProminent)
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.background, in: RoundedRectangle(cornerRadius: 16))
+    }
+
+    private var weatherCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Weather at the time")
+                .font(.headline)
+            if let dep = flight.departureMetar {
+                Text(dep)
+                    .font(.caption.monospaced())
+                    .textSelection(.enabled)
+            }
+            if let arr = flight.arrivalMetar, arr != flight.departureMetar {
+                Text(arr)
+                    .font(.caption.monospaced())
+                    .textSelection(.enabled)
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.background, in: RoundedRectangle(cornerRadius: 16))
     }
 
     private var statsGrid: some View {
@@ -98,6 +160,12 @@ struct FlightDetailView: View {
             }
             if let tach = flight.tachTime {
                 StatTile(label: "Tach", value: String(format: "%.1f", tach))
+            }
+            if let landings = flight.landingsCount ?? confirmedLandings {
+                StatTile(label: "Landings", value: "\(landings)")
+            }
+            if let planned = flight.plannedDestinationIdent {
+                StatTile(label: "Planned dest", value: planned)
             }
         }
     }

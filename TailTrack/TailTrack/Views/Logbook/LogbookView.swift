@@ -30,6 +30,22 @@ struct LogbookView: View {
                         }
                         Section {
                             statsRow
+                            NavigationLink {
+                                PassportView()
+                            } label: {
+                                Label("Airport Passport — every field you've visited",
+                                      systemImage: "wallet.pass.fill")
+                                    .font(.subheadline)
+                            }
+                        }
+                        if !onThisDay.isEmpty {
+                            Section("On this day") {
+                                ForEach(onThisDay) { memory in
+                                    NavigationLink(value: memory.id) {
+                                        memoryRow(memory)
+                                    }
+                                }
+                            }
                         }
                         Section("Flights") {
                             ForEach(logbook.flights) { flight in
@@ -105,6 +121,35 @@ struct LogbookView: View {
                 }
                 .padding(28)
                 .presentationDetents([.medium])
+            }
+        }
+    }
+
+    /// Flight Memories: flights from earlier years that happened on
+    /// today's date.
+    private var onThisDay: [Flight] {
+        let calendar = Calendar.current
+        let today = calendar.dateComponents([.month, .day], from: Date())
+        return logbook.flights.filter { flight in
+            let comps = calendar.dateComponents([.month, .day], from: flight.startedTracking)
+            let sameDay = comps.month == today.month && comps.day == today.day
+            let pastYear = !calendar.isDate(flight.startedTracking, equalTo: Date(), toGranularity: .year)
+            return sameDay && pastYear
+        }
+    }
+
+    private func memoryRow(_ flight: Flight) -> some View {
+        let years = Calendar.current.dateComponents(
+            [.year], from: flight.startedTracking, to: Date()).year ?? 1
+        return HStack(spacing: 10) {
+            Image(systemName: "sparkles")
+                .foregroundStyle(Theme.proGold)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("\(max(1, years)) year\(years == 1 ? "" : "s") ago today")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(Theme.proGold)
+                Text("\(flight.routeTitle) in \(flight.tailNumber)")
+                    .font(.subheadline)
             }
         }
     }
