@@ -11,6 +11,7 @@ struct FlightActivityAttributes: ActivityAttributes {
         var remainingNM: Double?
         var etaEpoch: Double?
         var phaseLabel: String
+        var remainingText: String?    // compact ETE like "14m" or "1h 12m"
     }
 
     var tailNumber: String

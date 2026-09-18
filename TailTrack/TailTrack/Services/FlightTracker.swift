@@ -463,8 +463,16 @@ final class FlightTracker {
             groundSpeedKt: latest?.groundSpeedKt,
             remainingNM: remainingNM,
             etaEpoch: eta?.timeIntervalSince1970,
-            phaseLabel: phase.label
+            phaseLabel: phase.label,
+            remainingText: eteRemaining.map(Self.shortETE)
         )
+    }
+
+    /// "14m" / "1h 12m" — the island-sized ETE readout.
+    private static func shortETE(_ interval: TimeInterval) -> String {
+        let minutes = max(1, Int((interval / 60).rounded()))
+        if minutes >= 60 { return "\(minutes / 60)h \(minutes % 60)m" }
+        return "\(minutes)m"
     }
 
     private func endDueToSignalLoss() {
