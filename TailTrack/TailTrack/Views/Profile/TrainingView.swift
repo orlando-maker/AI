@@ -4,6 +4,7 @@ import SwiftUI
 /// endorsements — editable in place.
 struct TrainingView: View {
     @Environment(ProfileStore.self) private var profileStore
+    @Environment(LogbookStore.self) private var logbook
     @Environment(\.dismiss) private var dismiss
 
     @State private var newRatingName = ""
@@ -11,8 +12,13 @@ struct TrainingView: View {
 
     private var profile: PilotProfile { profileStore.profile }
 
+    private var trackedHours: Double { logbook.totalFlightTime / 3600 }
+    private var totalHours: Double { profile.priorHours + trackedHours }
+    private var hoursToGo: Double { max(0, profile.trainingGoalHours - totalHours) }
+
     var body: some View {
         Form {
+            hoursRingSection
             progressSection
             milestonesSection
             ratingsSection
@@ -24,6 +30,87 @@ struct TrainingView: View {
                 Button("Done") { dismiss() }
             }
         }
+    }
+
+    // MARK: - Hours ring (status-style progress toward the certificate)
+
+    private var hoursRingSection: some View {
+        Section {
+            VStack(spacing: 14) {
+                ZStack {
+                    Circle()
+                        .stroke(Color.gray.opacity(0.18), lineWidth: 13)
+                    Circle()
+                        .trim(from: 0, to: min(1, profile.trainingGoalHours > 0
+                                               ? totalHours / profile.trainingGoalHours : 0))
+                        .stroke(Theme.proGold,
+                                style: StrokeStyle(lineWidth: 13, lineCap: .round))
+                        .rotationEffect(.degrees(-90))
+                    VStack(spacing: 2) {
+                        Text(String(format: "%.1f", totalHours))
+                            .font(.system(size: 38, weight: .heavy, design: .rounded))
+                            .monospacedDigit()
+                        Text("of \(Int(profile.trainingGoalHours)) hours")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .frame(width: 175, height: 175)
+                .padding(.top, 6)
+
+                Text(hoursToGo > 0
+                     ? String(format: "%.1f hours to go — %.1f tracked here + %.1f before the app", hoursToGo, trackedHours, profile.priorHours)
+                     : "Goal reached — go schedule that checkride! 🎉")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.bottom, 6)
+
+            HStack {
+                Text("Goal")
+                Spacer()
+                TextField("40", value: goalHoursBinding, format: .number)
+                    .keyboardType(.decimalPad)
+                    .multilineTextAlignment(.trailing)
+                    .frame(width: 70)
+                Text("h").foregroundStyle(.secondary)
+            }
+            HStack {
+                Text("Hours before TailTrack")
+                Spacer()
+                TextField("0", value: priorHoursBinding, format: .number)
+                    .keyboardType(.decimalPad)
+                    .multilineTextAlignment(.trailing)
+                    .frame(width: 70)
+                Text("h").foregroundStyle(.secondary)
+            }
+        } footer: {
+            Text("The ring counts your prior time plus every flight in the TailTrack logbook. 40 hours is the FAA minimum for the private certificate — most pilots need more, and that's normal.")
+        }
+    }
+
+    private var goalHoursBinding: Binding<Double> {
+        Binding(
+            get: { profileStore.profile.trainingGoalHours },
+            set: { newValue in
+                var p = profileStore.profile
+                p.trainingGoalHours = max(1, newValue)
+                profileStore.profile = p
+            }
+        )
+    }
+
+    private var priorHoursBinding: Binding<Double> {
+        Binding(
+            get: { profileStore.profile.priorHours },
+            set: { newValue in
+                var p = profileStore.profile
+                p.priorHours = max(0, newValue)
+                profileStore.profile = p
+            }
+        )
     }
 
     // MARK: - Progress

@@ -50,6 +50,7 @@ final class FlightTracker {
     private var didBackfillHistory = false
     private var backfillAttempts = 0
     private let client = ADSBClient()
+    private let liveActivity = FlightLiveActivity()
 
     // Landing is declared after this many consecutive on-ground samples.
     private static let groundSamplesToLand = 2
@@ -162,6 +163,7 @@ final class FlightTracker {
     /// Dismisses the arrival summary card.
     func reset() {
         cancelPolling()
+        liveActivity.end(liveActivityState())
         phase = .idle
         flight = nil
         latest = nil
@@ -319,9 +321,16 @@ final class FlightTracker {
                     flight?.takeoffTime = positionTime
                 }
                 autoFillDeparture()
+                liveActivity.start(
+                    tailNumber: flight?.tailNumber ?? "",
+                    departureIdent: flight?.departure?.ident ?? "———",
+                    destinationIdent: flight?.destination?.ident ?? "———",
+                    state: liveActivityState()
+                )
             }
             phase = .enroute
             statusDetail = "Live via \(snap.source)"
+            liveActivity.update(liveActivityState())
         } else if wasAirborne {
             // Only clearly ground-like samples count toward a landing; an
             // ambiguous sample (e.g. slow cruise into a headwind with no
@@ -414,16 +423,29 @@ final class FlightTracker {
         phase = .arrived
         statusDetail = "Landed"
         cancelPolling()
+        liveActivity.end(liveActivityState())
 
         if let f = flight, f.isMeaningful {
             logbook?.add(f)
         }
     }
 
+    private func liveActivityState() -> FlightActivityAttributes.ContentState {
+        FlightActivityAttributes.ContentState(
+            progress: progress ?? 0,
+            altitudeFt: latest?.baroAltitudeFt,
+            groundSpeedKt: latest?.groundSpeedKt,
+            remainingNM: remainingNM,
+            etaEpoch: eta?.timeIntervalSince1970,
+            phaseLabel: phase.label
+        )
+    }
+
     private func endDueToSignalLoss() {
         phase = .signalLost
         statusDetail = "Transponder signal lost — set the landing time when you're down."
         cancelPolling()
+        liveActivity.end(liveActivityState())
         NotificationManager.send(
             title: "Lost transponder signal",
             body: "\(flight?.tailNumber ?? "Your aircraft") hasn't been heard by the ADS-B networks for a while. Open TailTrack to log the landing time."

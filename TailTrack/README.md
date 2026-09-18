@@ -39,6 +39,21 @@ pattern session at your home field.
   home airport, primary aircraft — plus **training milestones** (first solo,
   solo XC, checkride…) and a **ratings/endorsements** list (type ratings,
   high performance, tailwheel, anything).
+- **Dynamic Island & Lock Screen**: while enroute, a Live Activity shows
+  the route, a moving progress bar, altitude/speed, and ETA right in the
+  Dynamic Island (any size island — the system adapts) and on the Lock
+  Screen. Updates flow while the app is running; iOS freezes the last
+  state if the app gets suspended.
+- **Full-screen map**: tap the expand button on the live map for an
+  edge-to-edge chart with a floating glass header and stat strip.
+- **Live airport weather**: METARs for your departure and destination
+  (FAA Aviation Weather Center, free, no key) as color-coded VFR/MVFR/
+  IFR/LIFR chips on the live screen; tap for the raw METAR. Advisory
+  only — not a briefing. (Radar tiles on the map would need an MKMapView
+  overlay rewrite — candidate for a future pass.)
+- **Hours ring**: airline-status-style progress toward your certificate —
+  set the goal (40 h default), add your pre-app hours, and the gold ring
+  fills from prior time + every tracked flight.
 - **Flight texts**: add people in your profile (Mom, CFI, whoever) and at
   wheels-up and landing the app preps the message — "Just took off from
   KSQL in N123AB, headed to KPAO ✈️" — one tap to send. (iOS never

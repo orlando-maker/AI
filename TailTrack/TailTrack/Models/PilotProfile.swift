@@ -53,6 +53,10 @@ struct PilotProfile: Codable {
     var ratings: [RatingEntry] = []
     var milestones: [TrainingMilestone] = TrainingMilestone.defaultSyllabus()
     var flightTextRecipients: [TextRecipient] = []
+    /// Certificate progress ring: the hours target (40 for private) and
+    /// hours flown before TailTrack started keeping score.
+    var trainingGoalHours: Double = 40
+    var priorHours: Double = 0
 
     var isSignedInWithApple: Bool { !(appleUserID ?? "").isEmpty }
     var isSignedInWithGoogle: Bool { !(googleUserID ?? "").isEmpty }
@@ -92,7 +96,7 @@ struct PilotProfile: Codable {
     // Custom decoding so profiles saved by older builds (single home
     // airport, no ratings or milestones) still load.
     enum CodingKeys: String, CodingKey {
-        case name, certificateLine, homeAirportIdents, avatarFileName, appleUserID, googleUserID, ratings, milestones, flightTextRecipients
+        case name, certificateLine, homeAirportIdents, avatarFileName, appleUserID, googleUserID, ratings, milestones, flightTextRecipients, trainingGoalHours, priorHours
     }
 
     private enum LegacyKeys: String, CodingKey {
@@ -113,6 +117,8 @@ struct PilotProfile: Codable {
         milestones = try c.decodeIfPresent([TrainingMilestone].self, forKey: .milestones)
             ?? TrainingMilestone.defaultSyllabus()
         flightTextRecipients = try c.decodeIfPresent([TextRecipient].self, forKey: .flightTextRecipients) ?? []
+        trainingGoalHours = try c.decodeIfPresent(Double.self, forKey: .trainingGoalHours) ?? 40
+        priorHours = try c.decodeIfPresent(Double.self, forKey: .priorHours) ?? 0
 
         // Migrate the old single home-airport field.
         if homeAirportIdents.isEmpty,

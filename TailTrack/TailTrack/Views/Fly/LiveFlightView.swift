@@ -15,11 +15,17 @@ struct LiveFlightView: View {
     @State private var textPayload: FlightTextPayload?
     @State private var takeoffTextSent = false
     @State private var landedTextSent = false
+    @State private var showingFullMap = false
+    @State private var weather: [AirportWeather] = []
+    @State private var selectedMetar: AirportWeather?
 
     var body: some View {
         ScrollView {
             VStack(spacing: 16) {
                 heroCard
+                if !weather.isEmpty {
+                    weatherStrip
+                }
                 if tracker.phase == .enroute, !takeoffTextSent, canText {
                     flightTextButton(
                         label: "Text that you're off",
@@ -46,6 +52,30 @@ struct LiveFlightView: View {
         .onChange(of: tracker.flight?.id) { _, _ in
             takeoffTextSent = false
             landedTextSent = false
+        }
+        .task(id: "\(tracker.flight?.departure?.ident ?? "")-\(tracker.flight?.destination?.ident ?? "")") {
+            let idents = [tracker.flight?.departure?.ident,
+                          tracker.flight?.destination?.ident].compactMap { $0 }
+            guard !idents.isEmpty else { return }
+            weather = await WeatherService().metars(for: idents)
+        }
+        .fullScreenCover(isPresented: $showingFullMap) {
+            FullScreenFlightMapView(hybridMap: $hybridMap)
+        }
+        .sheet(item: $selectedMetar) { metar in
+            VStack(alignment: .leading, spacing: 12) {
+                Text("\(metar.ident) METAR")
+                    .font(.headline)
+                Text(metar.raw)
+                    .font(.callout.monospaced())
+                    .textSelection(.enabled)
+                Text("Advisory only — get an official briefing before flight.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(24)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .presentationDetents([.height(220)])
         }
         .sheet(isPresented: $showingLandingSheet) {
             NavigationStack {
@@ -185,21 +215,81 @@ struct LiveFlightView: View {
         .frame(height: 340)
         .clipShape(RoundedRectangle(cornerRadius: 22))
         .overlay(alignment: .topTrailing) {
-            Button {
-                if pro.isPro {
-                    hybridMap.toggle()
-                } else {
-                    showingPaywall = true
+            VStack(spacing: 8) {
+                Button {
+                    showingFullMap = true
+                } label: {
+                    Image(systemName: "arrow.up.left.and.arrow.down.right")
+                        .font(.body.weight(.semibold))
+                        .padding(9)
+                        .background(.thinMaterial, in: Circle())
                 }
-            } label: {
-                Image(systemName: hybridMap ? "map.fill" : "globe.americas.fill")
-                    .font(.body.weight(.semibold))
-                    .padding(9)
-                    .background(.thinMaterial, in: Circle())
+                Button {
+                    if pro.isPro {
+                        hybridMap.toggle()
+                    } else {
+                        showingPaywall = true
+                    }
+                } label: {
+                    Image(systemName: hybridMap ? "map.fill" : "globe.americas.fill")
+                        .font(.body.weight(.semibold))
+                        .padding(9)
+                        .background(.thinMaterial, in: Circle())
+                }
             }
             .padding(10)
         }
         .shadow(color: .black.opacity(0.15), radius: 8, y: 4)
+    }
+
+    // MARK: - Weather
+
+    private var weatherStrip: some View {
+        HStack(spacing: 10) {
+            ForEach(weather) { metar in
+                Button {
+                    selectedMetar = metar
+                } label: {
+                    HStack(spacing: 8) {
+                        Circle()
+                            .fill(categoryColor(metar.flightCategory))
+                            .frame(width: 9, height: 9)
+                        VStack(alignment: .leading, spacing: 1) {
+                            HStack(spacing: 5) {
+                                Text(metar.ident)
+                                    .font(.caption.weight(.bold))
+                                if let category = metar.flightCategory {
+                                    Text(category)
+                                        .font(.caption2.weight(.heavy))
+                                        .foregroundStyle(categoryColor(metar.flightCategory))
+                                }
+                            }
+                            Text([metar.windSummary, metar.visibility,
+                                  metar.temperatureC.map { "\(Int($0))°C" }]
+                                .compactMap { $0 }.joined(separator: " · "))
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                        }
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(.background, in: RoundedRectangle(cornerRadius: 12))
+                }
+                .foregroundStyle(.primary)
+            }
+        }
+    }
+
+    private func categoryColor(_ category: String?) -> Color {
+        switch category {
+        case "VFR": return .green
+        case "MVFR": return .blue
+        case "IFR": return .red
+        case "LIFR": return .purple
+        default: return .gray
+        }
     }
 
     // MARK: - Controls

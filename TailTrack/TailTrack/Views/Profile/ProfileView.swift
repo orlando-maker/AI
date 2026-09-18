@@ -184,6 +184,11 @@ struct ProfileView: View {
                 }
                 let milestones = profile.milestones
                 let done = milestones.filter(\.completed).count
+                let totalHours = profile.priorHours + logbook.totalFlightTime / 3600
+                Text(String(format: "%.1f of %.0f hours toward your certificate",
+                            totalHours, profile.trainingGoalHours))
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Theme.proGold)
                 if !milestones.isEmpty {
                     ProgressView(value: Double(done) / Double(milestones.count))
                         .tint(Theme.proGold)
