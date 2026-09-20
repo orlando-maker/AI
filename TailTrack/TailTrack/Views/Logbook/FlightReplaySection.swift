@@ -119,15 +119,12 @@ struct AltitudeProfileView: View {
             let height = geo.size.height
             let stepX = width / CGFloat(max(1, track.count - 1))
 
-            func yFor(_ altitude: Double) -> CGFloat {
-                height - height * CGFloat(altitude / maxAlt) * 0.88 - 4
-            }
-
             ZStack(alignment: .topLeading) {
                 Path { path in
                     path.move(to: CGPoint(x: 0, y: height))
                     for (index, altitude) in altitudes.enumerated() {
-                        path.addLine(to: CGPoint(x: CGFloat(index) * stepX, y: yFor(altitude)))
+                        path.addLine(to: CGPoint(x: CGFloat(index) * stepX,
+                                                 y: yFor(altitude, height: height, maxAlt: maxAlt)))
                     }
                     path.addLine(to: CGPoint(x: width, y: height))
                     path.closeSubpath()
@@ -137,7 +134,8 @@ struct AltitudeProfileView: View {
 
                 Path { path in
                     for (index, altitude) in altitudes.enumerated() {
-                        let point = CGPoint(x: CGFloat(index) * stepX, y: yFor(altitude))
+                        let point = CGPoint(x: CGFloat(index) * stepX,
+                                            y: yFor(altitude, height: height, maxAlt: maxAlt))
                         if index == 0 { path.move(to: point) } else { path.addLine(to: point) }
                     }
                 }
@@ -169,5 +167,9 @@ struct AltitudeProfileView: View {
         }
         .background(.background, in: RoundedRectangle(cornerRadius: 16))
         .clipShape(RoundedRectangle(cornerRadius: 16))
+    }
+
+    private func yFor(_ altitude: Double, height: CGFloat, maxAlt: Double) -> CGFloat {
+        height - height * CGFloat(altitude / maxAlt) * 0.88 - 4
     }
 }
