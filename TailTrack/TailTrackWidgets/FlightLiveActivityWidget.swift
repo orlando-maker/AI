@@ -2,12 +2,15 @@ import ActivityKit
 import WidgetKit
 import SwiftUI
 
-/// The in-flight Live Activity, styled after the TailTrack brand mock:
-/// black pill, orange route line with departure/arrival glyphs, and the
-/// remaining minutes on the right — KORL ✈——— KSPG | 14m.
+// TailTrack brand colors for the Live Activity surfaces.
 private let ttOrange = Color(red: 0.95, green: 0.56, blue: 0.18)
 private let ttPillBackground = Color(red: 0.04, green: 0.05, blue: 0.09)
 
+/// The in-flight Live Activity, styled after the TailTrack brand mock:
+/// black pill, orange route line with departure/arrival glyphs, and the
+/// time remaining on the right. Remaining time renders as a system-driven
+/// countdown from the ETA, so it keeps ticking even when iOS suspends the
+/// app and updates stop flowing.
 struct FlightLiveActivityWidget: Widget {
 
     var body: some WidgetConfiguration {
@@ -23,16 +26,27 @@ struct FlightLiveActivityWidget: Widget {
                         Text(context.attributes.departureIdent)
                             .font(.headline.weight(.heavy))
                             .foregroundStyle(.white)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
                     }
                 }
                 DynamicIslandExpandedRegion(.trailing) {
-                    HStack(spacing: 5) {
-                        Text(context.attributes.destinationIdent)
-                            .font(.headline.weight(.heavy))
-                            .foregroundStyle(.white)
-                        Image(systemName: "airplane.arrival")
-                            .font(.caption)
-                            .foregroundStyle(ttOrange)
+                    VStack(alignment: .trailing, spacing: 2) {
+                        HStack(spacing: 5) {
+                            Text(context.attributes.destinationIdent)
+                                .font(.headline.weight(.heavy))
+                                .foregroundStyle(.white)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.7)
+                            Image(systemName: "airplane.arrival")
+                                .font(.caption)
+                                .foregroundStyle(ttOrange)
+                        }
+                        if let eta = context.state.etaEpoch {
+                            Text(Date(timeIntervalSince1970: eta), style: .time)
+                                .font(.caption2)
+                                .foregroundStyle(.white.opacity(0.7))
+                        }
                     }
                 }
                 DynamicIslandExpandedRegion(.bottom) {
@@ -40,39 +54,58 @@ struct FlightLiveActivityWidget: Widget {
                         RouteLine(progress: context.state.progress)
                         HStack {
                             if let alt = context.state.altitudeFt {
-                                Text("\(Int(alt).formatted()) ft")
-                                    .foregroundStyle(.white.opacity(0.75))
+                                Text("\(Int(alt.rounded()).formatted()) ft")
                             }
                             if let gs = context.state.groundSpeedKt {
-                                Text("\(Int(gs)) kt")
-                                    .foregroundStyle(.white.opacity(0.75))
+                                Text("\(Int(gs.rounded())) kt")
                             }
                             Spacer()
-                            if let remaining = context.state.remainingText {
-                                Text(remaining)
-                                    .font(.caption.weight(.heavy))
-                                    .foregroundStyle(ttOrange)
-                            } else if let eta = context.state.etaEpoch {
-                                Text(Date(timeIntervalSince1970: eta), style: .time)
+                            Text(context.state.phaseLabel)
+                                .foregroundStyle(.white.opacity(0.6))
+                            Spacer()
+                            if let remaining = context.state.remainingNM {
+                                Text("\(Int(remaining.rounded())) nm left")
                                     .foregroundStyle(ttOrange)
                             }
                         }
                         .font(.caption2)
                         .monospacedDigit()
+                        .foregroundStyle(.white.opacity(0.85))
+                        .lineLimit(1)
                     }
                 }
             } compactLeading: {
                 Image(systemName: "airplane")
                     .foregroundStyle(ttOrange)
             } compactTrailing: {
-                Text(context.state.remainingText ?? "\(Int((context.state.progress * 100).rounded()))%")
+                CountdownText(etaEpoch: context.state.etaEpoch,
+                              fallback: "\(Int((context.state.progress * 100).rounded()))%")
                     .font(.caption2.weight(.heavy))
                     .monospacedDigit()
                     .foregroundStyle(ttOrange)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+                    .frame(maxWidth: 48)
             } minimal: {
                 Image(systemName: "airplane")
                     .foregroundStyle(ttOrange)
             }
+        }
+    }
+}
+
+/// A self-updating countdown to the ETA; falls back to static text when
+/// there's no ETA (or it has passed).
+private struct CountdownText: View {
+    let etaEpoch: Double?
+    let fallback: String
+
+    var body: some View {
+        if let etaEpoch, etaEpoch > Date().timeIntervalSince1970 + 1 {
+            Text(timerInterval: Date.now...Date(timeIntervalSince1970: etaEpoch),
+                 countsDown: true)
+        } else {
+            Text(fallback)
         }
     }
 }
@@ -101,11 +134,12 @@ private struct RouteLine: View {
             .frame(maxHeight: .infinity)
         }
         .frame(height: 14)
+        .frame(minWidth: 50)
     }
 }
 
 /// Lock Screen: the brand pill — route line between the idents, a divider,
-/// and the minutes remaining in orange.
+/// and the live countdown (or the phase once the flight has ended).
 private struct LockScreenFlightView: View {
     let context: ActivityViewContext<FlightActivityAttributes>
 
@@ -119,6 +153,8 @@ private struct LockScreenFlightView: View {
                     Text(context.attributes.departureIdent)
                         .font(.system(.headline, design: .rounded).weight(.heavy))
                         .foregroundStyle(.white)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
                 }
 
                 RouteLine(progress: context.state.progress)
@@ -127,6 +163,8 @@ private struct LockScreenFlightView: View {
                     Text(context.attributes.destinationIdent)
                         .font(.system(.headline, design: .rounded).weight(.heavy))
                         .foregroundStyle(.white)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
                     Image(systemName: "airplane.arrival")
                         .font(.caption)
                         .foregroundStyle(ttOrange)
@@ -136,19 +174,23 @@ private struct LockScreenFlightView: View {
                     .fill(.white.opacity(0.25))
                     .frame(width: 1, height: 22)
 
-                Text(context.state.remainingText ?? "—")
+                CountdownText(etaEpoch: context.state.etaEpoch,
+                              fallback: context.state.phaseLabel)
                     .font(.system(.headline, design: .rounded).weight(.heavy))
                     .monospacedDigit()
                     .foregroundStyle(ttOrange)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.55)
+                    .frame(maxWidth: 76, alignment: .trailing)
             }
 
             HStack {
                 Text(context.attributes.tailNumber)
                 if let alt = context.state.altitudeFt {
-                    Text("· \(Int(alt).formatted()) ft")
+                    Text("· \(Int(alt.rounded()).formatted()) ft")
                 }
                 if let gs = context.state.groundSpeedKt {
-                    Text("· \(Int(gs)) kt")
+                    Text("· \(Int(gs.rounded())) kt")
                 }
                 Spacer()
                 if let eta = context.state.etaEpoch {
@@ -161,6 +203,7 @@ private struct LockScreenFlightView: View {
             .font(.caption)
             .monospacedDigit()
             .foregroundStyle(.white.opacity(0.7))
+            .lineLimit(1)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 14)

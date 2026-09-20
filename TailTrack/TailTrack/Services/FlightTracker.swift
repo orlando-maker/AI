@@ -164,7 +164,14 @@ final class FlightTracker {
     /// Dismisses the arrival summary card.
     func reset() {
         cancelPolling()
-        liveActivity.end(liveActivityState())
+        // A flight ended by hand mid-flight must not leave a live-looking
+        // countdown frozen on the Lock Screen for the dismissal window.
+        var finalState = liveActivityState()
+        if phase != .arrived && phase != .signalLost {
+            finalState.etaEpoch = nil
+            finalState.phaseLabel = "Flight ended"
+        }
+        liveActivity.end(finalState)
         phase = .idle
         flight = nil
         latest = nil
@@ -463,16 +470,8 @@ final class FlightTracker {
             groundSpeedKt: latest?.groundSpeedKt,
             remainingNM: remainingNM,
             etaEpoch: eta?.timeIntervalSince1970,
-            phaseLabel: phase.label,
-            remainingText: eteRemaining.map(Self.shortETE)
+            phaseLabel: phase.label
         )
-    }
-
-    /// "14m" / "1h 12m" — the island-sized ETE readout.
-    private static func shortETE(_ interval: TimeInterval) -> String {
-        let minutes = max(1, Int((interval / 60).rounded()))
-        if minutes >= 60 { return "\(minutes / 60)h \(minutes % 60)m" }
-        return "\(minutes)m"
     }
 
     private func endDueToSignalLoss() {

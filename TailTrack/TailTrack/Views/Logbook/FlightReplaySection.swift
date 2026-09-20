@@ -158,6 +158,10 @@ struct AltitudeProfileView: View {
             .gesture(
                 DragGesture(minimumDistance: 0)
                     .onChanged { value in
+                        // stepX is 0 before the first real layout pass; a
+                        // divide-by-zero here would poison scrubIndex with
+                        // NaN and crash the index clamp.
+                        guard stepX > 0 else { return }
                         let index = value.location.x / stepX
                         scrubIndex = Double(min(max(0, index), CGFloat(track.count - 1)))
                     }
