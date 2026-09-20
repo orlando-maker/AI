@@ -10,6 +10,9 @@ struct Aircraft: Codable, Identifiable, Hashable {
     var icaoHexOverride: String = ""  // manual Mode S hex for non-US or edge cases
     var photoFileName: String?        // user-uploaded photo of the aircraft
     var homeAirportIdent: String?     // where this plane lives (great for rentals)
+    /// Club planes are quick-added by tail number alone — the whole flying
+    /// club's fleet without building a full profile for each ship.
+    var isClubPlane: Bool = false
 
     /// The Mode S hex used for ADS-B lookups: manual override if set,
     /// otherwise computed from the US N-number.
@@ -26,6 +29,28 @@ struct Aircraft: Codable, Identifiable, Hashable {
     var subtitle: String {
         let type = typeCode.isEmpty ? "Unknown type" : typeCode
         return nickname.isEmpty ? type : "\(NNumber.normalize(tailNumber)) · \(type)"
+    }
+
+    // Custom decoding so fleets saved by builds before club planes existed
+    // still load (synthesized Codable would reject the missing key).
+    enum CodingKeys: String, CodingKey {
+        case id, tailNumber, typeCode, nickname, cruiseSpeedKt,
+             icaoHexOverride, photoFileName, homeAirportIdent, isClubPlane
+    }
+
+    init() {}
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
+        tailNumber = try c.decodeIfPresent(String.self, forKey: .tailNumber) ?? ""
+        typeCode = try c.decodeIfPresent(String.self, forKey: .typeCode) ?? ""
+        nickname = try c.decodeIfPresent(String.self, forKey: .nickname) ?? ""
+        cruiseSpeedKt = try c.decodeIfPresent(Double.self, forKey: .cruiseSpeedKt) ?? 110
+        icaoHexOverride = try c.decodeIfPresent(String.self, forKey: .icaoHexOverride) ?? ""
+        photoFileName = try c.decodeIfPresent(String.self, forKey: .photoFileName)
+        homeAirportIdent = try c.decodeIfPresent(String.self, forKey: .homeAirportIdent)
+        isClubPlane = try c.decodeIfPresent(Bool.self, forKey: .isClubPlane) ?? false
     }
 }
 

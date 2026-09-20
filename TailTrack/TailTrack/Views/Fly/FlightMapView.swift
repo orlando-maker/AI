@@ -21,7 +21,7 @@ struct FlightMapView: View {
         return GreatCircle.routePoints(from: departure.coordinate, to: destination.coordinate)
     }
 
-    // MARK: - Altitude-banded track segments
+    // MARK: - Altitude-colored track segments
 
     private struct TrackSegment: Identifiable {
         let id: Int
@@ -29,35 +29,51 @@ struct FlightMapView: View {
         let color: Color
     }
 
-    private static let bandColors: [Color] = [.green, .teal, .blue, .indigo]
+    /// Low → high color ramp. Colors are assigned relative to THIS flight's
+    /// altitude spread, so pattern work at 1,000 ft shows its climbs and
+    /// descents just as vividly as a cross-country at 10,500.
+    private static let rampColors: [Color] = [.green, .teal, .blue, .indigo, .purple]
 
-    private static func band(_ altitudeFt: Double?) -> Int {
-        guard let altitudeFt else { return 0 }
-        if altitudeFt < 2000 { return 0 }
-        if altitudeFt < 6000 { return 1 }
-        if altitudeFt < 10000 { return 2 }
-        return 3
+    /// The flight's altitude spread, or nil when it's too small to color
+    /// meaningfully (taxi-only, or no altitude data yet).
+    private var altitudeRange: ClosedRange<Double>? {
+        let altitudes = track.compactMap(\.altitudeFt)
+        guard let low = altitudes.min(), let high = altitudes.max(),
+              high - low >= 400 else { return nil }
+        return low...high
+    }
+
+    private func bandIndex(_ altitudeFt: Double?, in range: ClosedRange<Double>?) -> Int {
+        guard let altitudeFt, let range else { return 0 }
+        let fraction = (altitudeFt - range.lowerBound) / (range.upperBound - range.lowerBound)
+        return min(Self.rampColors.count - 1,
+                   max(0, Int(fraction * Double(Self.rampColors.count))))
+    }
+
+    private var trackCoordinates: [CLLocationCoordinate2D] {
+        track.map(\.coordinate)
     }
 
     private var trackSegments: [TrackSegment] {
         guard track.count > 1 else { return [] }
+        let range = altitudeRange
         var segments: [TrackSegment] = []
         var coords: [CLLocationCoordinate2D] = [track[0].coordinate]
-        var currentBand = Self.band(track[0].altitudeFt)
+        var currentBand = bandIndex(track[0].altitudeFt, in: range)
         for point in track.dropFirst() {
-            let pointBand = Self.band(point.altitudeFt)
+            let pointBand = bandIndex(point.altitudeFt, in: range)
             coords.append(point.coordinate)
             if pointBand != currentBand {
                 segments.append(TrackSegment(id: segments.count,
                                              coordinates: coords,
-                                             color: Self.bandColors[currentBand]))
+                                             color: Self.rampColors[currentBand]))
                 coords = [point.coordinate]
                 currentBand = pointBand
             }
         }
         segments.append(TrackSegment(id: segments.count,
                                      coordinates: coords,
-                                     color: Self.bandColors[currentBand]))
+                                     color: Self.rampColors[currentBand]))
         return segments
     }
 
@@ -66,6 +82,14 @@ struct FlightMapView: View {
             if plannedRoute.count > 1 {
                 MapPolyline(coordinates: plannedRoute)
                     .stroke(Color.secondary, style: StrokeStyle(lineWidth: 2, dash: [7, 7]))
+            }
+
+            // A soft dark casing under the colored trail keeps it crisp
+            // over any terrain — city grid, water, or satellite imagery.
+            if trackCoordinates.count > 1 {
+                MapPolyline(coordinates: trackCoordinates)
+                    .stroke(Color.black.opacity(0.28),
+                            style: StrokeStyle(lineWidth: 6, lineCap: .round, lineJoin: .round))
             }
 
             ForEach(trackSegments) { segment in
@@ -102,8 +126,13 @@ struct FlightMapView: View {
                         .shadow(radius: 2)
                         .rotationEffect(.degrees((currentTrackDeg ?? 90) - 90))
                         .padding(7)
-                        .background(Color.blue, in: Circle())
+                        .background(
+                            LinearGradient(colors: [Theme.brandOrange, Theme.brandOrangeDeep],
+                                           startPoint: .top, endPoint: .bottom),
+                            in: Circle()
+                        )
                         .overlay(Circle().strokeBorder(.white, lineWidth: 2))
+                        .shadow(color: Theme.brandOrange.opacity(0.55), radius: 6)
                 }
             }
         }
@@ -114,6 +143,25 @@ struct FlightMapView: View {
         .mapControls {
             MapCompass()
             MapScaleView()
+        }
+        .overlay(alignment: .topLeading) {
+            if let range = altitudeRange {
+                HStack(spacing: 5) {
+                    Text(Format.feet(range.lowerBound))
+                    LinearGradient(colors: Self.rampColors,
+                                   startPoint: .leading, endPoint: .trailing)
+                        .frame(width: 42, height: 5)
+                        .clipShape(Capsule())
+                    Text(Format.feet(range.upperBound))
+                }
+                .font(.system(size: 9, weight: .semibold))
+                .monospacedDigit()
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 5)
+                .background(.thinMaterial, in: Capsule())
+                .padding(8)
+            }
         }
         .overlay(alignment: .bottomTrailing) {
             if currentPosition != nil {

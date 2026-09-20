@@ -7,36 +7,53 @@ struct FleetView: View {
     @Environment(ProStore.self) private var pro
 
     @State private var addingAircraft = false
+    @State private var addingClubPlanes = false
     @State private var showingPaywall = false
 
     var body: some View {
         NavigationStack {
             List {
-                ForEach(fleet.aircraft) { plane in
-                    NavigationLink {
-                        AircraftHistoryView(plane: plane)
-                    } label: {
-                        AircraftRow(plane: plane)
+                if !fleet.myAircraft.isEmpty {
+                    Section("My Aircraft") {
+                        aircraftRows(fleet.myAircraft)
                     }
                 }
-                .onDelete { fleet.delete(at: $0) }
+
+                if !fleet.clubPlanes.isEmpty {
+                    Section {
+                        aircraftRows(fleet.clubPlanes)
+                    } header: {
+                        Text("Club Fleet")
+                    } footer: {
+                        Text("Quick-added by tail number. Tap a plane to see its flights, or edit it later to add a type and photo.")
+                    }
+                }
 
                 if fleet.aircraft.isEmpty {
                     ContentUnavailableView(
                         "No aircraft yet",
                         systemImage: "airplane.circle",
-                        description: Text("Add the plane you fly — tail number and type — and TailTrack figures out its ADS-B identity automatically.")
+                        description: Text("Add the plane you fly — or paste your whole flying club's tail numbers at once.")
                     )
                 }
             }
             .navigationTitle("Aircraft")
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
-                    Button {
-                        if fleet.aircraft.count >= 1 && !pro.isPro {
-                            showingPaywall = true
-                        } else {
-                            addingAircraft = true
+                    Menu {
+                        Button {
+                            if !fleet.myAircraft.isEmpty && !pro.isPro {
+                                showingPaywall = true
+                            } else {
+                                addingAircraft = true
+                            }
+                        } label: {
+                            Label("Add My Aircraft", systemImage: "airplane")
+                        }
+                        Button {
+                            addingClubPlanes = true
+                        } label: {
+                            Label("Add Club Planes by Tail Number", systemImage: "person.3")
                         }
                     } label: {
                         Image(systemName: "plus")
@@ -48,7 +65,25 @@ struct FleetView: View {
                     AircraftEditView(aircraft: Aircraft()) { fleet.add($0) }
                 }
             }
+            .sheet(isPresented: $addingClubPlanes) { ClubFleetAddView() }
             .sheet(isPresented: $showingPaywall) { PaywallView() }
+        }
+    }
+
+    private func aircraftRows(_ planes: [Aircraft]) -> some View {
+        ForEach(planes) { plane in
+            NavigationLink {
+                AircraftHistoryView(plane: plane)
+            } label: {
+                AircraftRow(plane: plane)
+            }
+            .swipeActions(edge: .trailing) {
+                Button(role: .destructive) {
+                    fleet.delete(plane)
+                } label: {
+                    Label("Delete", systemImage: "trash")
+                }
+            }
         }
     }
 }

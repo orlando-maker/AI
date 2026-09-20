@@ -18,9 +18,50 @@ final class FleetStore {
         load()
     }
 
+    /// Personal planes with full profiles.
+    var myAircraft: [Aircraft] { aircraft.filter { !$0.isClubPlane } }
+
+    /// Quick-added club planes (tail number only).
+    var clubPlanes: [Aircraft] { aircraft.filter(\.isClubPlane) }
+
     func add(_ plane: Aircraft) {
         aircraft.append(plane)
         save()
+    }
+
+    /// Pulls plausible registrations out of free-typed text — spaces,
+    /// commas, semicolons, and new lines all separate; duplicates collapse.
+    static func parseRegistrations(_ text: String) -> [String] {
+        let separators = CharacterSet(charactersIn: " ,;\n\t")
+        var seen = Set<String>()
+        var registrations: [String] = []
+        for raw in text.uppercased().components(separatedBy: separators) {
+            let cleaned = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard (3...8).contains(cleaned.count),
+                  cleaned.allSatisfy({ $0.isLetter || $0.isNumber || $0 == "-" })
+            else { continue }
+            let normalized = NNumber.normalize(cleaned)
+            if seen.insert(normalized).inserted { registrations.append(normalized) }
+        }
+        return registrations
+    }
+
+    /// Bulk-adds club planes from a blob of tail numbers ("N610SP, N152CS…").
+    /// Registrations already in the fleet are skipped. Returns how many
+    /// were added.
+    @discardableResult
+    func addClubPlanes(from text: String) -> Int {
+        let existing = Set(aircraft.map { NNumber.normalize($0.tailNumber) })
+        var added = 0
+        for registration in Self.parseRegistrations(text) where !existing.contains(registration) {
+            var plane = Aircraft()
+            plane.tailNumber = registration
+            plane.isClubPlane = true
+            aircraft.append(plane)
+            added += 1
+        }
+        if added > 0 { save() }
+        return added
     }
 
     func update(_ plane: Aircraft) {

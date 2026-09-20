@@ -34,6 +34,11 @@ enum Theme {
     /// Premium gold accent for Pro branding.
     static let proGold = Color(red: 0.95, green: 0.75, blue: 0.25)
 
+    /// TailTrack brand orange — matches the Dynamic Island and the
+    /// orlandonell.com landing page.
+    static let brandOrange = Color(red: 0.95, green: 0.56, blue: 0.18)
+    static let brandOrangeDeep = Color(red: 0.85, green: 0.42, blue: 0.10)
+
     /// Richer midnight-indigo gradient shown to Pro members on hero cards.
     static let proSky = LinearGradient(
         colors: [

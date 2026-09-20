@@ -22,6 +22,7 @@ struct FlightSetupView: View {
     @State private var pickingDeparture = false
     @State private var pickingDestination = false
     @State private var addingAircraft = false
+    @State private var addingClubPlanes = false
     @State private var showingPaywall = false
 
     private var selectedAircraft: Aircraft? {
@@ -65,6 +66,7 @@ struct FlightSetupView: View {
                 }
             }
         }
+        .sheet(isPresented: $addingClubPlanes) { ClubFleetAddView() }
         .sheet(isPresented: $showingPaywall) { PaywallView() }
         .onAppear { prefillDeparture() }
         .onChange(of: selectedAircraftID) { _, _ in prefillDeparture() }
@@ -96,6 +98,11 @@ struct FlightSetupView: View {
 
     // MARK: - Sections
 
+    private func pickerLabel(_ plane: Aircraft) -> String {
+        let tail = NNumber.normalize(plane.tailNumber)
+        return plane.typeCode.isEmpty ? tail : "\(tail) · \(plane.typeCode)"
+    }
+
     private var aircraftSection: some View {
         Section("Aircraft") {
             if fleet.aircraft.isEmpty {
@@ -104,14 +111,29 @@ struct FlightSetupView: View {
                 } label: {
                     Label("Add your aircraft", systemImage: "plus.circle.fill")
                 }
+                Button {
+                    addingClubPlanes = true
+                } label: {
+                    Label("Add a club fleet (tail numbers only)", systemImage: "person.3")
+                }
             } else {
                 Picker("Aircraft", selection: Binding(
                     get: { selectedAircraft?.id },
                     set: { selectedAircraftID = $0 }
                 )) {
-                    ForEach(fleet.aircraft) { plane in
-                        Text("\(NNumber.normalize(plane.tailNumber)) · \(plane.typeCode)")
-                            .tag(Optional(plane.id))
+                    if !fleet.myAircraft.isEmpty {
+                        Section("My Aircraft") {
+                            ForEach(fleet.myAircraft) { plane in
+                                Text(pickerLabel(plane)).tag(Optional(plane.id))
+                            }
+                        }
+                    }
+                    if !fleet.clubPlanes.isEmpty {
+                        Section("Club Fleet") {
+                            ForEach(fleet.clubPlanes) { plane in
+                                Text(pickerLabel(plane)).tag(Optional(plane.id))
+                            }
+                        }
                     }
                 }
                 if let plane = selectedAircraft {
@@ -131,13 +153,21 @@ struct FlightSetupView: View {
                     }
                 }
                 Button {
-                    if !pro.isPro {
+                    // The first full personal profile is free; more need
+                    // Pro. Club planes never count against that.
+                    if !pro.isPro && !fleet.myAircraft.isEmpty {
                         showingPaywall = true
                     } else {
                         addingAircraft = true
                     }
                 } label: {
                     Label("Add another aircraft", systemImage: "plus")
+                        .font(.callout)
+                }
+                Button {
+                    addingClubPlanes = true
+                } label: {
+                    Label("Add club planes", systemImage: "person.3")
                         .font(.callout)
                 }
             }

@@ -2,8 +2,25 @@ import SwiftUI
 
 struct RootView: View {
     @Environment(AirportStore.self) private var airports
+    @Environment(ProfileStore.self) private var profileStore
     @AppStorage(LegalDocuments.acceptedVersionKey) private var acceptedLegalVersion = 0
+    @AppStorage("hasCompletedAccountSetup") private var hasCompletedAccountSetup = false
     @AppStorage(AppearanceSetting.storageKey) private var appearanceRaw = AppearanceSetting.system.rawValue
+
+    /// First-launch gates, in order: agree to the legal terms, then create
+    /// the pilot account. Both must clear before the tabs unlock. Users
+    /// who already have a profile (builds before accounts existed) skip
+    /// the account step.
+    private enum Gate: String, Identifiable {
+        case terms, account
+        var id: String { rawValue }
+    }
+
+    private var currentGate: Gate? {
+        if acceptedLegalVersion < LegalDocuments.version { return .terms }
+        if !hasCompletedAccountSetup && profileStore.profile.name.isEmpty { return .account }
+        return nil
+    }
 
     var body: some View {
         TabView {
@@ -25,14 +42,19 @@ struct RootView: View {
         .fontDesign(.rounded)
         .preferredColorScheme(AppearanceSetting(rawValue: appearanceRaw)?.colorScheme)
         .onOpenURL { GoogleAuth.handle(url: $0) }
-        .fullScreenCover(isPresented: Binding(
-            get: { acceptedLegalVersion < LegalDocuments.version },
-            set: { stillPresented in
-                if !stillPresented { acceptedLegalVersion = LegalDocuments.version }
-            }
-        )) {
-            TermsGateView {
-                acceptedLegalVersion = LegalDocuments.version
+        .fullScreenCover(item: Binding(
+            get: { currentGate },
+            set: { _ in }  // dismissal is driven by the gate conditions clearing
+        )) { gate in
+            switch gate {
+            case .terms:
+                TermsGateView {
+                    acceptedLegalVersion = LegalDocuments.version
+                }
+            case .account:
+                CreateAccountView {
+                    hasCompletedAccountSetup = true
+                }
             }
         }
         .task {

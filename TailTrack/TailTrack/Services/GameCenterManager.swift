@@ -26,9 +26,15 @@ final class GameCenterManager {
                 self.isAuthenticated = GKLocalPlayer.local.isAuthenticated
                 if self.isAuthenticated {
                     self.statusMessage = "Connected as \(GKLocalPlayer.local.displayName)"
+                } else if error != nil {
+                    self.statusMessage = """
+                    Couldn't connect. Make sure you're signed in under \
+                    Settings → Game Center, then try again. (Developer \
+                    builds installed from Xcode may not connect until the \
+                    app exists in App Store Connect — badges still work.)
+                    """
                 } else {
-                    self.statusMessage = error?.localizedDescription
-                        ?? "Game Center isn't available on this device."
+                    self.statusMessage = "Game Center isn't available on this device."
                 }
             }
         }
@@ -50,9 +56,15 @@ final class GameCenterManager {
         GKAchievement.report(achievements) { _ in }
     }
 
+    /// The topmost presented controller. Presenting Game Center's sign-in
+    /// from the root fails silently whenever any sheet is open — and the
+    /// Connect button lives inside the Achievements sheet — so walk up the
+    /// presentation chain first.
     private static var presentingController: UIViewController? {
-        UIApplication.shared.connectedScenes
+        var top = UIApplication.shared.connectedScenes
             .compactMap { ($0 as? UIWindowScene)?.windows.first(where: \.isKeyWindow) }
             .first?.rootViewController
+        while let presented = top?.presentedViewController { top = presented }
+        return top
     }
 }
