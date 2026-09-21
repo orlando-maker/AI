@@ -26,7 +26,8 @@ struct FlightReplaySection: View {
                 destination: flight.destination,
                 currentPosition: currentPoint?.coordinate,
                 currentTrackDeg: currentPoint?.trackDeg,
-                tailNumber: flight.tailNumber
+                tailNumber: flight.tailNumber,
+                via: flight.via ?? []
             )
             .frame(height: 300)
             .clipShape(RoundedRectangle(cornerRadius: 22))

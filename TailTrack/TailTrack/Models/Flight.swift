@@ -25,6 +25,9 @@ struct Flight: Codable, Identifiable {
     var icaoHex: String?
     var departure: Airport?
     var destination: Airport?
+    /// Planned stops along the route (KSQL → KPAO → KSLC). Optional so
+    /// flights saved before this existed still decode.
+    var via: [Airport]?
     var startedTracking: Date
     var firstContact: Date?
     var takeoffTime: Date?
@@ -44,9 +47,20 @@ struct Flight: Codable, Identifiable {
 
     // MARK: - Derived stats
 
+    /// The planned route through any via stops: departure → stops → destination.
+    var plannedRouteAirports: [Airport] {
+        ([departure] + (via ?? []) + [destination]).compactMap { $0 }
+    }
+
     var routeDistanceNM: Double? {
-        guard let departure, let destination else { return nil }
-        return GreatCircle.distanceNM(from: departure.coordinate, to: destination.coordinate)
+        let stops = plannedRouteAirports
+        guard stops.count >= 2 else { return nil }
+        var total = 0.0
+        for i in 1..<stops.count {
+            total += GreatCircle.distanceNM(from: stops[i - 1].coordinate,
+                                            to: stops[i].coordinate)
+        }
+        return total
     }
 
     /// Block-style flight time: first airborne sample to landing (or now while live).

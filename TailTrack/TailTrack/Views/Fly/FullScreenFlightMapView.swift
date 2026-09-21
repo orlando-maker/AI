@@ -10,6 +10,7 @@ struct FullScreenFlightMapView: View {
     @Environment(ProStore.self) private var pro
     @Environment(\.dismiss) private var dismiss
     @State private var showingPaywall = false
+    @AppStorage(FlightTracker.nearbyTrafficKey) private var showTraffic = true
 
     var body: some View {
         ZStack {
@@ -22,7 +23,9 @@ struct FullScreenFlightMapView: View {
                 },
                 currentTrackDeg: tracker.latest?.trackDeg,
                 tailNumber: tracker.flight?.tailNumber ?? "",
-                useHybridStyle: hybridMap
+                useHybridStyle: hybridMap,
+                via: tracker.flight?.via ?? [],
+                nearbyTraffic: showTraffic ? tracker.nearbyTraffic : []
             )
             .ignoresSafeArea()
 
@@ -65,6 +68,16 @@ struct FullScreenFlightMapView: View {
             .background(.thinMaterial, in: Capsule())
 
             Spacer()
+
+            Button {
+                showTraffic.toggle()
+            } label: {
+                Image(systemName: showTraffic ? "airplane.circle.fill" : "airplane.circle")
+                    .font(.body.weight(.semibold))
+                    .padding(10)
+                    .background(.thinMaterial, in: Circle())
+            }
+            .foregroundStyle(showTraffic ? Theme.brandOrange : Color.primary)
 
             Button {
                 if pro.isPro {

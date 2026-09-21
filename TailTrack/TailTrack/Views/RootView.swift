@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct RootView: View {
     @Environment(AirportStore.self) private var airports
@@ -64,6 +65,25 @@ struct RootView: View {
             // download keeps whatever data is already on the device.
             if airports.cacheIsStale {
                 await airports.downloadFullDatabase()
+            }
+        }
+        .onAppear { applyAppearanceOverride() }
+        .onChange(of: appearanceRaw) { _, _ in applyAppearanceOverride() }
+    }
+
+    /// A forced Light/Dark theme must reach every presentation — sheets and
+    /// full-screen covers don't reliably inherit preferredColorScheme from
+    /// the presenting view, so the override is applied at the window level.
+    private func applyAppearanceOverride() {
+        let style: UIUserInterfaceStyle
+        switch AppearanceSetting(rawValue: appearanceRaw) ?? .system {
+        case .system: style = .unspecified
+        case .light: style = .light
+        case .dark: style = .dark
+        }
+        for scene in UIApplication.shared.connectedScenes {
+            (scene as? UIWindowScene)?.windows.forEach {
+                $0.overrideUserInterfaceStyle = style
             }
         }
     }

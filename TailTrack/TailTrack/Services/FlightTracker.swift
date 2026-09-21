@@ -36,6 +36,8 @@ final class FlightTracker {
     private(set) var aircraft: Aircraft?
     /// Set for crew-mode flights tracked by airline callsign (e.g. DAL123).
     private(set) var targetCallsign: String?
+    /// Other aircraft near the tracked plane (display-only traffic layer).
+    private(set) var nearbyTraffic: [NearbyAircraft] = []
 
     /// Set by the app so completed flights land in the logbook.
     var logbook: LogbookStore?
@@ -49,8 +51,16 @@ final class FlightTracker {
     private var lastRecordedPointTime: Date?
     private var didBackfillHistory = false
     private var backfillAttempts = 0
+    private var lastTrafficFetch: Date?
     private let client = ADSBClient()
     private let liveActivity = FlightLiveActivity()
+
+    /// UserDefaults key for the traffic layer toggle (defaults to on).
+    static let nearbyTrafficKey = "showNearbyTraffic"
+
+    static var trafficLayerEnabled: Bool {
+        UserDefaults.standard.object(forKey: nearbyTrafficKey) as? Bool ?? true
+    }
 
     // Landing is declared after this many consecutive on-ground samples.
     private static let groundSamplesToLand = 2
@@ -65,7 +75,8 @@ final class FlightTracker {
 
     // MARK: - Control
 
-    func start(aircraft: Aircraft, departure: Airport?, destination: Airport?) {
+    func start(aircraft: Aircraft, departure: Airport?, destination: Airport?,
+               via: [Airport] = []) {
         cancelPolling()
         self.aircraft = aircraft
         targetCallsign = nil
@@ -75,6 +86,8 @@ final class FlightTracker {
         lastRecordedPointTime = nil
         didBackfillHistory = false
         backfillAttempts = 0
+        lastTrafficFetch = nil
+        nearbyTraffic = []
         latest = nil
         statusDetail = "Contacting ADS-B networks…"
 
@@ -84,6 +97,7 @@ final class FlightTracker {
             icaoHex: discoveredHex,
             departure: departure,
             destination: destination,
+            via: via.isEmpty ? nil : via,
             startedTracking: Date()
         )
         phase = .searching
@@ -132,6 +146,8 @@ final class FlightTracker {
         lastRecordedPointTime = nil
         didBackfillHistory = false
         backfillAttempts = 0
+        lastTrafficFetch = nil
+        nearbyTraffic = []
         latest = nil
         statusDetail = "Contacting ADS-B networks…"
 
@@ -177,6 +193,7 @@ final class FlightTracker {
         latest = nil
         aircraft = nil
         targetCallsign = nil
+        nearbyTraffic = []
         statusDetail = ""
     }
 
@@ -216,9 +233,30 @@ final class FlightTracker {
             } else {
                 handleNotSeen()
             }
+            await refreshNearbyTraffic()
         } catch {
             statusDetail = error.localizedDescription
         }
+    }
+
+    /// Display-only traffic layer: other aircraft near the tracked plane,
+    /// refreshed on a slower cadence than the own-ship poll and only while
+    /// the user has the layer switched on.
+    private func refreshNearbyTraffic() async {
+        guard Self.trafficLayerEnabled, isActive, let latest else {
+            if !nearbyTraffic.isEmpty { nearbyTraffic = [] }
+            return
+        }
+        if let last = lastTrafficFetch, Date().timeIntervalSince(last) < 20 { return }
+        lastTrafficFetch = Date()
+        let traffic = await client.nearbyAircraft(
+            latitude: latest.latitude,
+            longitude: latest.longitude,
+            radiusNM: 30,
+            excludingHex: discoveredHex ?? latest.hex
+        )
+        guard !Task.isCancelled, isActive else { return }
+        nearbyTraffic = traffic
     }
 
     /// Joining a flight already in the air: pull the trail flown so far

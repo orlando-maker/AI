@@ -20,6 +20,21 @@ struct ADSBSnapshot: Sendable {
     let source: String
 }
 
+/// Another aircraft near the tracked one — the live traffic layer.
+struct NearbyAircraft: Identifiable, Sendable, Equatable {
+    let hex: String
+    /// Callsign, else registration, else the hex — whatever reads best.
+    let label: String
+    let latitude: Double
+    let longitude: Double
+    let altitudeFt: Double?
+    let groundSpeedKt: Double?
+    let trackDeg: Double?
+    let onGround: Bool
+
+    var id: String { hex }
+}
+
 enum ADSBError: LocalizedError {
     case notBroadcasting
     case allSourcesFailed(String)
@@ -223,6 +238,77 @@ struct ADSBClient {
             fetchedAt: Date(),
             source: sourceName
         )
+    }
+
+    // MARK: - Nearby traffic
+
+    /// All aircraft within `radiusNM` of a point, for the live traffic
+    /// layer. Both community sources are raced and the first non-empty
+    /// answer wins; failures just mean an empty layer this cycle.
+    func nearbyAircraft(latitude: Double, longitude: Double, radiusNM: Double,
+                        excludingHex: String?) async -> [NearbyAircraft] {
+        let radius = Int(min(250, max(1, radiusNM)))
+        let urls = [
+            "https://api.adsb.lol/v2/lat/\(latitude)/lon/\(longitude)/dist/\(radius)",
+            "https://opendata.adsb.fi/api/v2/lat/\(latitude)/lon/\(longitude)/dist/\(radius)",
+        ].compactMap { URL(string: $0) }
+
+        return await withTaskGroup(of: [NearbyAircraft].self) { group in
+            for url in urls {
+                group.addTask {
+                    (try? await self.fetchNearby(url: url, excludingHex: excludingHex)) ?? []
+                }
+            }
+            for await result in group where !result.isEmpty {
+                group.cancelAll()
+                return result
+            }
+            return []
+        }
+    }
+
+    private func fetchNearby(url: URL, excludingHex: String?) async throws -> [NearbyAircraft] {
+        var request = URLRequest(url: url)
+        request.setValue("TailTrack iOS", forHTTPHeaderField: "User-Agent")
+        let (data, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+            throw URLError(.badServerResponse)
+        }
+        let decoded = try JSONDecoder().decode(V2Response.self, from: data)
+        let own = excludingHex?.lowercased()
+        var result: [NearbyAircraft] = []
+        for ac in decoded.ac ?? [] {
+            guard let lat = ac.lat, let lon = ac.lon else { continue }
+            let hex = ac.hex.lowercased()
+            if hex == own { continue }
+
+            var altitudeFt: Double?
+            var onGround = false
+            switch ac.altBaro {
+            case .feet(let value): altitudeFt = value
+            case .ground: onGround = true
+            case nil: break
+            }
+
+            let callsign = ac.flight?.trimmingCharacters(in: .whitespaces) ?? ""
+            let registration = ac.r?.trimmingCharacters(in: .whitespaces) ?? ""
+            let label = !callsign.isEmpty ? callsign
+                : (!registration.isEmpty ? registration : hex.uppercased())
+
+            result.append(NearbyAircraft(
+                hex: hex,
+                label: label,
+                latitude: lat,
+                longitude: lon,
+                altitudeFt: altitudeFt ?? ac.altGeom,
+                groundSpeedKt: ac.gs,
+                trackDeg: ac.track,
+                onGround: onGround
+            ))
+            // The map gets cluttered (and slow) past a few dozen targets.
+            if result.count >= 30 { break }
+        }
+        return result
     }
 
     // MARK: - Historical track (breadcrumb backfill)

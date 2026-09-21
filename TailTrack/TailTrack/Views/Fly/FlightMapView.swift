@@ -12,13 +12,23 @@ struct FlightMapView: View {
     let currentTrackDeg: Double?
     let tailNumber: String
     var useHybridStyle = false
+    /// Planned stops between departure and destination.
+    var via: [Airport] = []
+    /// Other aircraft to draw as a display-only traffic layer.
+    var nearbyTraffic: [NearbyAircraft] = []
 
     @State private var camera: MapCameraPosition = .automatic
     @State private var followAircraft = false
 
     private var plannedRoute: [CLLocationCoordinate2D] {
-        guard let departure, let destination else { return [] }
-        return GreatCircle.routePoints(from: departure.coordinate, to: destination.coordinate)
+        let stops = ([departure] + via + [destination]).compactMap { $0 }
+        guard stops.count >= 2 else { return [] }
+        var coords: [CLLocationCoordinate2D] = []
+        for i in 1..<stops.count {
+            coords += GreatCircle.routePoints(from: stops[i - 1].coordinate,
+                                              to: stops[i].coordinate)
+        }
+        return coords
     }
 
     // MARK: - Altitude-colored track segments
@@ -115,6 +125,42 @@ struct FlightMapView: View {
                         .padding(5)
                         .background(.background, in: Circle())
                         .overlay(Circle().strokeBorder(Color.secondary.opacity(0.4)))
+                }
+            }
+
+            ForEach(via, id: \.ident) { stop in
+                Annotation(stop.ident, coordinate: stop.coordinate) {
+                    Image(systemName: "mappin")
+                        .font(.caption2)
+                        .padding(4)
+                        .background(.background, in: Circle())
+                        .overlay(Circle().strokeBorder(Color.secondary.opacity(0.4)))
+                }
+            }
+
+            // Display-only traffic: never a substitute for see-and-avoid
+            // or ATC — just situational flavor from the same open networks.
+            ForEach(nearbyTraffic) { traffic in
+                Annotation(traffic.label,
+                           coordinate: CLLocationCoordinate2D(latitude: traffic.latitude,
+                                                              longitude: traffic.longitude)) {
+                    VStack(spacing: 1) {
+                        Image(systemName: "airplane")
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(.white)
+                            .rotationEffect(.degrees((traffic.trackDeg ?? 0) - 90))
+                            .padding(5)
+                            .background(Color(white: 0.28).opacity(0.85), in: Circle())
+                            .overlay(Circle().strokeBorder(.white.opacity(0.6), lineWidth: 1))
+                        if let alt = traffic.altitudeFt {
+                            Text(Format.feet(alt))
+                                .font(.system(size: 8, weight: .bold))
+                                .monospacedDigit()
+                                .padding(.horizontal, 4)
+                                .padding(.vertical, 1)
+                                .background(.thinMaterial, in: Capsule())
+                        }
+                    }
                 }
             }
 

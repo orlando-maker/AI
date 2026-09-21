@@ -19,8 +19,10 @@ struct FlightSetupView: View {
     @State private var selectedAircraftID: UUID?
     @State private var departure: Airport?
     @State private var destination: Airport?
+    @State private var viaAirports: [Airport] = []
     @State private var pickingDeparture = false
     @State private var pickingDestination = false
+    @State private var pickingVia = false
     @State private var addingAircraft = false
     @State private var addingClubPlanes = false
     @State private var showingPaywall = false
@@ -57,6 +59,13 @@ struct FlightSetupView: View {
         }
         .sheet(isPresented: $pickingDestination) {
             AirportPickerView(title: "Destination") { destination = $0 }
+        }
+        .sheet(isPresented: $pickingVia) {
+            AirportPickerView(title: "Stop Along the Way") { airport in
+                if !viaAirports.contains(where: { $0.ident == airport.ident }) {
+                    viaAirports.append(airport)
+                }
+            }
         }
         .sheet(isPresented: $addingAircraft) {
             NavigationStack {
@@ -199,12 +208,48 @@ struct FlightSetupView: View {
     private var routeSection: some View {
         Section {
             airportRow(label: "From", airport: departure) { pickingDeparture = true }
+
+            if mode == .personal {
+                ForEach(viaAirports, id: \.ident) { stop in
+                    HStack {
+                        Text("Via")
+                            .foregroundStyle(.primary)
+                        Spacer()
+                        VStack(alignment: .trailing) {
+                            Text(stop.ident).bold()
+                            Text(stop.name)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                        }
+                        Button {
+                            viaAirports.removeAll { $0.ident == stop.ident }
+                        } label: {
+                            Image(systemName: "minus.circle.fill")
+                                .foregroundStyle(.red)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+
             airportRow(label: "To", airport: destination) { pickingDestination = true }
+
+            if mode == .personal, departure != nil, destination != nil {
+                Button {
+                    pickingVia = true
+                } label: {
+                    Label("Add a stop along the way", systemImage: "plus.circle")
+                        .font(.callout)
+                }
+            }
+
             if departure != nil || destination != nil {
                 Button {
                     let previousDeparture = departure
                     departure = destination
                     destination = previousDeparture
+                    viaAirports.reverse()
                 } label: {
                     Label("Swap", systemImage: "arrow.up.arrow.down")
                         .font(.callout)
@@ -213,7 +258,7 @@ struct FlightSetupView: View {
         } header: {
             Text("Route")
         } footer: {
-            Text("Optional — leave blank to just follow the aircraft. TailTrack fills in the departure and arrival airports automatically from where you take off and land.")
+            Text("Optional — leave blank to just follow the aircraft. Add stops for multi-leg days (KSQL → KPAO → KSLC); the planned line, distance, and time follow the whole path. TailTrack fills in the departure and arrival airports automatically from where you take off and land.")
         }
     }
 
@@ -248,8 +293,14 @@ struct FlightSetupView: View {
 
     private var planSummary: PlanSummary? {
         guard let departure, let destination else { return nil }
-        let dist = GreatCircle.distanceNM(from: departure.coordinate, to: destination.coordinate)
-        let course = GreatCircle.initialBearing(from: departure.coordinate, to: destination.coordinate)
+        let stops = [departure] + (mode == .personal ? viaAirports : []) + [destination]
+        var dist = 0.0
+        for i in 1..<stops.count {
+            dist += GreatCircle.distanceNM(from: stops[i - 1].coordinate,
+                                           to: stops[i].coordinate)
+        }
+        let course = GreatCircle.initialBearing(from: departure.coordinate,
+                                                to: stops[1].coordinate)
         var ete: Double?
         // Cruise-speed planning only applies to your own aircraft — a crew
         // flight's ETE comes from live groundspeed once it's airborne.
@@ -261,6 +312,12 @@ struct FlightSetupView: View {
 
     private func planSection(_ plan: PlanSummary) -> some View {
         Section("Plan") {
+            if mode == .personal, !viaAirports.isEmpty {
+                LabeledContent("Route",
+                               value: ([departure?.ident] + viaAirports.map { $0.ident }
+                                       + [destination?.ident])
+                                   .compactMap { $0 }.joined(separator: " → "))
+            }
             LabeledContent("Distance", value: Format.nm(plan.distanceNM))
             LabeledContent("Initial course", value: Format.degrees(plan.courseDeg) + " true")
             if let ete = plan.eteSeconds {
@@ -284,7 +341,8 @@ struct FlightSetupView: View {
                 switch mode {
                 case .personal:
                     guard let plane = selectedAircraft else { return }
-                    tracker.start(aircraft: plane, departure: departure, destination: destination)
+                    tracker.start(aircraft: plane, departure: departure,
+                                  destination: destination, via: viaAirports)
                 case .crew:
                     guard pro.isPro else {
                         showingPaywall = true

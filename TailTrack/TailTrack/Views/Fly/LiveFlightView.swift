@@ -18,6 +18,7 @@ struct LiveFlightView: View {
     @State private var showingFullMap = false
     @State private var weather: [AirportWeather] = []
     @State private var selectedMetar: AirportWeather?
+    @AppStorage(FlightTracker.nearbyTrafficKey) private var showTraffic = true
 
     var body: some View {
         ScrollView {
@@ -210,7 +211,9 @@ struct LiveFlightView: View {
             },
             currentTrackDeg: tracker.latest?.trackDeg,
             tailNumber: tracker.flight?.tailNumber ?? "",
-            useHybridStyle: hybridMap
+            useHybridStyle: hybridMap,
+            via: tracker.flight?.via ?? [],
+            nearbyTraffic: showTraffic ? tracker.nearbyTraffic : []
         )
         .frame(height: 340)
         .clipShape(RoundedRectangle(cornerRadius: 22))
@@ -235,6 +238,15 @@ struct LiveFlightView: View {
                         .font(.body.weight(.semibold))
                         .padding(9)
                         .background(.thinMaterial, in: Circle())
+                }
+                Button {
+                    showTraffic.toggle()
+                } label: {
+                    Image(systemName: showTraffic ? "airplane.circle.fill" : "airplane.circle")
+                        .font(.body.weight(.semibold))
+                        .padding(9)
+                        .background(.thinMaterial, in: Circle())
+                        .foregroundStyle(showTraffic ? Theme.brandOrange : Color.primary)
                 }
             }
             .padding(10)
