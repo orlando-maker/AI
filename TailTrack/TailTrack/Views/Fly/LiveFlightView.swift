@@ -116,7 +116,7 @@ struct LiveFlightView: View {
                 destinationIdent: tracker.flight?.destination?.ident ?? "———",
                 progress: tracker.progress
             )
-            .tint(.white)
+            .tint(Theme.brandOrange)
             .foregroundStyle(.white)
 
             timesRow

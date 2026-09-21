@@ -99,7 +99,7 @@ struct AircraftHistoryView: View {
                 let coords = thinned(flight.track)
                 if coords.count > 1 {
                     MapPolyline(coordinates: coords)
-                        .stroke(Color.blue.opacity(0.55), lineWidth: 2)
+                        .stroke(Theme.brandOrange.opacity(0.55), lineWidth: 2)
                 }
             }
         }

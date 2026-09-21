@@ -16,6 +16,8 @@ struct StatTile: View {
                 .monospacedDigit()
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
+                .contentTransition(.numericText())
+                .animation(.snappy, value: value)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(10)

@@ -177,7 +177,7 @@ struct FlightMapView: View {
                         .font(.body.weight(.semibold))
                         .padding(9)
                         .background(.thinMaterial, in: Circle())
-                        .foregroundStyle(followAircraft ? Color.blue : Color.primary)
+                        .foregroundStyle(followAircraft ? Theme.brandOrange : Color.primary)
                 }
                 .padding(10)
             }

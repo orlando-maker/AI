@@ -22,7 +22,7 @@ struct RouteProgressBar: View {
                 let p = progress ?? 0
                 ZStack(alignment: .leading) {
                     Capsule()
-                        .fill(.quaternary)
+                        .fill(.tint.opacity(0.25))
                         .frame(height: 4)
                     Capsule()
                         .fill(.tint)
@@ -30,11 +30,13 @@ struct RouteProgressBar: View {
                     Image(systemName: "airplane")
                         .font(.system(size: 16, weight: .semibold))
                         .foregroundStyle(.tint)
+                        .shadow(color: .black.opacity(0.35), radius: 2)
                         .offset(x: max(0, min(geo.size.width - 18, geo.size.width * p - 9)))
                 }
                 .frame(maxHeight: .infinity)
             }
             .frame(height: 22)
+            .animation(.smooth(duration: 0.8), value: progress)
         }
     }
 }

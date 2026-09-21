@@ -3,12 +3,14 @@ import SwiftUI
 /// Shared visual language: night-flight gradients and card styling.
 enum Theme {
 
-    /// Deep night-sky gradient used on hero cards while enroute.
+    /// Deep night-sky gradient used on hero cards while enroute — near-black
+    /// navy so the orange route line glows against it, like the Dynamic
+    /// Island pill.
     static let sky = LinearGradient(
         colors: [
-            Color(red: 0.04, green: 0.09, blue: 0.25),
-            Color(red: 0.10, green: 0.22, blue: 0.52),
-            Color(red: 0.16, green: 0.35, blue: 0.68),
+            Color(red: 0.03, green: 0.05, blue: 0.14),
+            Color(red: 0.07, green: 0.13, blue: 0.36),
+            Color(red: 0.12, green: 0.25, blue: 0.54),
         ],
         startPoint: .topLeading, endPoint: .bottomTrailing
     )
@@ -109,6 +111,8 @@ struct GlassTile: View {
                 .foregroundStyle(.white)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
+                .contentTransition(.numericText())
+                .animation(.snappy, value: value)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 8)
