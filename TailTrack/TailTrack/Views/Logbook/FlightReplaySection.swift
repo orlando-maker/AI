@@ -75,7 +75,7 @@ struct FlightReplaySection: View {
             Slider(value: $scrubIndex, in: 0...Double(max(1, track.count - 1)))
         }
         .padding(14)
-        .background(.background, in: RoundedRectangle(cornerRadius: 16))
+        .background(Theme.card, in: RoundedRectangle(cornerRadius: 16))
         .task(id: isPlaying) {
             guard isPlaying, track.count > 1 else { return }
             let maxIndex = Double(track.count - 1)
@@ -166,7 +166,7 @@ struct AltitudeProfileView: View {
                     }
             )
         }
-        .background(.background, in: RoundedRectangle(cornerRadius: 16))
+        .background(Theme.card, in: RoundedRectangle(cornerRadius: 16))
         .clipShape(RoundedRectangle(cornerRadius: 16))
     }
 

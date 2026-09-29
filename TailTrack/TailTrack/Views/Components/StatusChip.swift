@@ -5,8 +5,6 @@ import SwiftUI
 struct StatusChip: View {
     let phase: FlightTracker.Phase
 
-    @State private var pulsing = false
-
     private var color: Color {
         switch phase {
         case .idle: return .gray
@@ -25,12 +23,7 @@ struct StatusChip: View {
                 .frame(width: 7, height: 7)
                 .overlay {
                     if phase == .enroute {
-                        Circle()
-                            .stroke(color, lineWidth: 1.5)
-                            .scaleEffect(pulsing ? 2.4 : 1)
-                            .opacity(pulsing ? 0 : 0.8)
-                            .animation(.easeOut(duration: 1.4).repeatForever(autoreverses: false),
-                                       value: pulsing)
+                        PulseRing(color: color)
                     }
                 }
             Text(phase.label)
@@ -40,6 +33,25 @@ struct StatusChip: View {
         .padding(.vertical, 5)
         .background(color.opacity(0.15), in: Capsule())
         .foregroundStyle(color)
-        .onAppear { pulsing = true }
+    }
+}
+
+/// The radar-sweep ring. It owns its animation state, so it starts pulsing
+/// the moment it enters the hierarchy — including when the phase flips to
+/// enroute long after the chip first appeared.
+private struct PulseRing: View {
+    let color: Color
+    @State private var pulsing = false
+
+    var body: some View {
+        Circle()
+            .stroke(color, lineWidth: 1.5)
+            .scaleEffect(pulsing ? 2.4 : 1)
+            .opacity(pulsing ? 0 : 0.8)
+            .onAppear {
+                withAnimation(.easeOut(duration: 1.4).repeatForever(autoreverses: false)) {
+                    pulsing = true
+                }
+            }
     }
 }

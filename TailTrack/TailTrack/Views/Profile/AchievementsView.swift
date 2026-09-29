@@ -21,7 +21,7 @@ struct AchievementsView: View {
             .padding()
             .readableContentWidth()
         }
-        .background(Color(uiColor: .systemGroupedBackground))
+        .background(Theme.paper)
         .navigationTitle("Achievements")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -82,7 +82,7 @@ struct AchievementsView: View {
             }
         }
         .padding(16)
-        .background(.background, in: RoundedRectangle(cornerRadius: 18))
+        .background(Theme.card, in: RoundedRectangle(cornerRadius: 18))
     }
 
     private var gameCenterCard: some View {
@@ -115,6 +115,6 @@ struct AchievementsView: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity)
-        .background(.background, in: RoundedRectangle(cornerRadius: 16))
+        .background(Theme.card, in: RoundedRectangle(cornerRadius: 16))
     }
 }

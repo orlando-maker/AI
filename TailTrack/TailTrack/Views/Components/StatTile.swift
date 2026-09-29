@@ -8,7 +8,7 @@ struct StatTile: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(label)
-                .font(.caption2)
+                .font(.caption2.monospaced())
                 .foregroundStyle(.secondary)
                 .textCase(.uppercase)
             Text(value)
@@ -21,7 +21,7 @@ struct StatTile: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(10)
-        .background(Color(uiColor: .secondarySystemGroupedBackground),
+        .background(Theme.card,
                     in: RoundedRectangle(cornerRadius: 10))
     }
 }

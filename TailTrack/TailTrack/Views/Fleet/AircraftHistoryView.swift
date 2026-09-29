@@ -46,13 +46,13 @@ struct AircraftHistoryView: View {
                 if let route = mostCommonRoute {
                     LabeledContent("Most flown route", value: route)
                         .padding(16)
-                        .background(.background, in: RoundedRectangle(cornerRadius: 16))
+                        .background(Theme.card, in: RoundedRectangle(cornerRadius: 16))
                 }
             }
             .padding()
             .readableContentWidth()
         }
-        .background(Color(uiColor: .systemGroupedBackground))
+        .background(Theme.paper)
         .navigationTitle(plane.displayName)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {

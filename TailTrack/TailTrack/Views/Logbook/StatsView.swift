@@ -57,7 +57,7 @@ struct StatsView: View {
             .padding()
             .readableContentWidth()
         }
-        .background(Color(uiColor: .systemGroupedBackground))
+        .background(Theme.paper)
         .navigationTitle("Pilot Stats")
         .navigationBarTitleDisplayMode(.inline)
         .fullScreenCover(isPresented: $showingWrapped) {
@@ -86,7 +86,7 @@ struct StatsView: View {
                     .foregroundStyle(.tertiary)
             }
             .padding(14)
-            .background(.background, in: RoundedRectangle(cornerRadius: 16))
+            .background(Theme.card, in: RoundedRectangle(cornerRadius: 16))
             .overlay(
                 RoundedRectangle(cornerRadius: 16)
                     .strokeBorder(Theme.proGold.opacity(0.4), lineWidth: 1.5)
@@ -137,7 +137,7 @@ struct StatsView: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.background, in: RoundedRectangle(cornerRadius: 16))
+        .background(Theme.card, in: RoundedRectangle(cornerRadius: 16))
     }
 
     private var airportsCard: some View {
@@ -157,7 +157,7 @@ struct StatsView: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.background, in: RoundedRectangle(cornerRadius: 16))
+        .background(Theme.card, in: RoundedRectangle(cornerRadius: 16))
     }
 
     private var recordsCard: some View {
@@ -175,7 +175,7 @@ struct StatsView: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.background, in: RoundedRectangle(cornerRadius: 16))
+        .background(Theme.card, in: RoundedRectangle(cornerRadius: 16))
     }
 
     private func recordRow(_ icon: String, _ title: String, _ value: String) -> some View {

@@ -54,6 +54,8 @@ struct FlightSetupView: View {
             }
             startSection
         }
+        .scrollContentBackground(.hidden)
+        .background(Theme.paper)
         .sheet(isPresented: $pickingDeparture) {
             AirportPickerView(title: "Departure") { departure = $0 }
         }

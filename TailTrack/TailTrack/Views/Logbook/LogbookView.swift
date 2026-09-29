@@ -64,6 +64,8 @@ struct LogbookView: View {
                 }
             }
             .navigationTitle("Logbook")
+            .scrollContentBackground(.hidden)
+            .background(Theme.paper)
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Menu {

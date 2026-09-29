@@ -2,8 +2,9 @@ import ActivityKit
 import WidgetKit
 import SwiftUI
 
-// TailTrack brand colors for the Live Activity surfaces.
-private let ttOrange = Color(red: 0.95, green: 0.56, blue: 0.18)
+// TailTrack brand colors for the Live Activity surfaces — the landing
+// page's red-orange on the ink-black pill.
+private let ttOrange = Color(red: 0.94, green: 0.33, blue: 0.13)
 private let ttPillBackground = Color(red: 0.04, green: 0.05, blue: 0.09)
 
 /// The in-flight Live Activity, styled after the TailTrack brand mock:

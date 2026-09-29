@@ -130,6 +130,8 @@ struct CreateAccountView: View {
                         .multilineTextAlignment(.center)
                 }
             }
+            .scrollContentBackground(.hidden)
+            .background(Theme.paper)
         }
         .interactiveDismissDisabled()
         .sheet(isPresented: $pickingHome) {

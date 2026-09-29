@@ -42,7 +42,7 @@ struct ProfileView: View {
                 .padding()
                 .readableContentWidth()
             }
-            .background(Color(uiColor: .systemGroupedBackground))
+            .background(Theme.paper)
             .navigationTitle("Profile")
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
@@ -210,7 +210,7 @@ struct ProfileView: View {
                 }
             }
             .padding(16)
-            .background(.background, in: RoundedRectangle(cornerRadius: 16))
+            .background(Theme.card, in: RoundedRectangle(cornerRadius: 16))
         }
         .foregroundStyle(.primary)
     }
@@ -234,7 +234,7 @@ struct ProfileView: View {
                     .foregroundStyle(.tertiary)
             }
             .padding(16)
-            .background(.background, in: RoundedRectangle(cornerRadius: 16))
+            .background(Theme.card, in: RoundedRectangle(cornerRadius: 16))
         }
         .foregroundStyle(.primary)
     }
@@ -254,7 +254,7 @@ struct ProfileView: View {
                 .font(.callout)
             }
             .padding()
-            .background(.background, in: RoundedRectangle(cornerRadius: 14))
+            .background(Theme.card, in: RoundedRectangle(cornerRadius: 14))
         } else {
             VStack(spacing: 10) {
                 if appleSignInEnabled {

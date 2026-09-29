@@ -64,7 +64,7 @@ struct PassportView: View {
             .padding()
             .readableContentWidth()
         }
-        .background(Color(uiColor: .systemGroupedBackground))
+        .background(Theme.paper)
         .navigationTitle("Airport Passport")
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -152,7 +152,7 @@ struct PassportView: View {
                         .lineLimit(1)
                 }
                 .padding(12)
-                .background(.background, in: RoundedRectangle(cornerRadius: 14))
+                .background(Theme.card, in: RoundedRectangle(cornerRadius: 14))
             }
         }
     }

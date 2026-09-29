@@ -1,7 +1,31 @@
 import SwiftUI
+import UIKit
 
-/// Shared visual language: night-flight gradients and card styling.
+/// Shared visual language: the TailTrack print-shop palette — cream paper,
+/// ink navy, and the landing page's red-orange — plus night-flight
+/// gradients and card styling.
 enum Theme {
+
+    /// TailTrack brand orange — the landing page / Dynamic Island
+    /// red-orange.
+    static let brandOrange = Color(red: 0.94, green: 0.33, blue: 0.13)
+    static let brandOrangeDeep = Color(red: 0.78, green: 0.24, blue: 0.08)
+
+    /// Screen background: warm cream paper in light mode, ink-navy black
+    /// at night — the website's palette.
+    static let paper = Color(uiColor: UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(red: 0.055, green: 0.063, blue: 0.090, alpha: 1)
+            : UIColor(red: 0.937, green: 0.918, blue: 0.863, alpha: 1)
+    })
+
+    /// Card surface on top of the paper: lighter cream by day, raised ink
+    /// by night.
+    static let card = Color(uiColor: UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(red: 0.106, green: 0.118, blue: 0.157, alpha: 1)
+            : UIColor(red: 0.980, green: 0.965, blue: 0.925, alpha: 1)
+    })
 
     /// Deep night-sky gradient used on hero cards while enroute — near-black
     /// navy so the orange route line glows against it, like the Dynamic
@@ -35,11 +59,6 @@ enum Theme {
 
     /// Premium gold accent for Pro branding.
     static let proGold = Color(red: 0.95, green: 0.75, blue: 0.25)
-
-    /// TailTrack brand orange — matches the Dynamic Island and the
-    /// orlandonell.com landing page.
-    static let brandOrange = Color(red: 0.95, green: 0.56, blue: 0.18)
-    static let brandOrangeDeep = Color(red: 0.85, green: 0.42, blue: 0.10)
 
     /// Richer midnight-indigo gradient shown to Pro members on hero cards.
     static let proSky = LinearGradient(
@@ -102,7 +121,7 @@ struct GlassTile: View {
     var body: some View {
         VStack(spacing: 3) {
             Text(label)
-                .font(.caption2.weight(.semibold))
+                .font(.caption2.weight(.semibold).monospaced())
                 .textCase(.uppercase)
                 .foregroundStyle(.white.opacity(0.65))
             Text(value)

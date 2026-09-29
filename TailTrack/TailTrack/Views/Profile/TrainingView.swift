@@ -24,6 +24,8 @@ struct TrainingView: View {
             ratingsSection
         }
         .navigationTitle("Training & Ratings")
+        .scrollContentBackground(.hidden)
+        .background(Theme.paper)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {

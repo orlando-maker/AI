@@ -38,6 +38,8 @@ struct FleetView: View {
                 }
             }
             .navigationTitle("Aircraft")
+            .scrollContentBackground(.hidden)
+            .background(Theme.paper)
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Menu {

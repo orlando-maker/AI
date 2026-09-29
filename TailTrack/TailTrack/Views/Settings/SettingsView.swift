@@ -20,6 +20,8 @@ struct SettingsView: View {
                 #endif
             }
             .navigationTitle("Settings")
+            .scrollContentBackground(.hidden)
+            .background(Theme.paper)
             .sheet(isPresented: $showingPaywall) { PaywallView() }
         }
     }

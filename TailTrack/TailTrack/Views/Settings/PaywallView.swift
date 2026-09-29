@@ -18,7 +18,7 @@ struct PaywallView: View {
                 .padding()
                 .readableContentWidth()
             }
-            .background(Color(uiColor: .systemGroupedBackground))
+            .background(Theme.paper)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Close") { dismiss() }
@@ -60,7 +60,7 @@ struct PaywallView: View {
             feature("person.3.fill", "Family Sharing", "One purchase covers everyone in your family group.")
         }
         .padding(18)
-        .background(.background, in: RoundedRectangle(cornerRadius: 18))
+        .background(Theme.card, in: RoundedRectangle(cornerRadius: 18))
     }
 
     private func feature(_ icon: String, _ title: String, _ detail: String) -> some View {
@@ -107,7 +107,7 @@ struct PaywallView: View {
                                 .font(.system(.headline, design: .rounded))
                         }
                         .padding(14)
-                        .background(.background, in: RoundedRectangle(cornerRadius: 14))
+                        .background(Theme.card, in: RoundedRectangle(cornerRadius: 14))
                         .overlay(
                             RoundedRectangle(cornerRadius: 14)
                                 .strokeBorder(isBestValue(product) ? Theme.proGold : .clear, lineWidth: 2)

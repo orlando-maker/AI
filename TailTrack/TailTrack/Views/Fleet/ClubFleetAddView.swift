@@ -61,6 +61,8 @@ struct ClubFleetAddView: View {
                 }
             }
             .navigationTitle("Add Club Planes")
+            .scrollContentBackground(.hidden)
+            .background(Theme.paper)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

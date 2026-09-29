@@ -38,7 +38,8 @@ final class FleetStore {
         for raw in text.uppercased().components(separatedBy: separators) {
             let cleaned = raw.trimmingCharacters(in: .whitespacesAndNewlines)
             guard (3...8).contains(cleaned.count),
-                  cleaned.allSatisfy({ $0.isLetter || $0.isNumber || $0 == "-" })
+                  cleaned.allSatisfy({ $0.isLetter || $0.isNumber || $0 == "-" }),
+                  cleaned.contains(where: { $0.isLetter || $0.isNumber })
             else { continue }
             let normalized = NNumber.normalize(cleaned)
             if seen.insert(normalized).inserted { registrations.append(normalized) }
