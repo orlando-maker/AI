@@ -52,6 +52,9 @@ final class FlightTracker {
     private var didBackfillHistory = false
     private var backfillAttempts = 0
     private var lastTrafficFetch: Date?
+    /// Via stops already overflown (or stopped at), so the distance-left
+    /// math stops routing through them.
+    private var visitedViaIdents: Set<String> = []
     private let client = ADSBClient()
     private let liveActivity = FlightLiveActivity()
 
@@ -88,6 +91,7 @@ final class FlightTracker {
         backfillAttempts = 0
         lastTrafficFetch = nil
         nearbyTraffic = []
+        visitedViaIdents = []
         latest = nil
         statusDetail = "Contacting ADS-B networks…"
 
@@ -148,6 +152,7 @@ final class FlightTracker {
         backfillAttempts = 0
         lastTrafficFetch = nil
         nearbyTraffic = []
+        visitedViaIdents = []
         latest = nil
         statusDetail = "Contacting ADS-B networks…"
 
@@ -322,6 +327,17 @@ final class FlightTracker {
             flight?.typeCode = type
         }
 
+        // Passing within a few miles of a planned via stop checks it off,
+        // so distance-left and ETA route through what's actually ahead.
+        if let via = flight?.via, !via.isEmpty {
+            let here = CLLocationCoordinate2D(latitude: snap.latitude, longitude: snap.longitude)
+            for stop in via where !visitedViaIdents.contains(stop.ident) {
+                if GreatCircle.distanceNM(from: here, to: stop.coordinate) < 3 {
+                    visitedViaIdents.insert(stop.ident)
+                }
+            }
+        }
+
         // Ignore badly stale positions for track recording, but still show them.
         let positionTime = snap.fetchedAt.addingTimeInterval(-snap.positionAgeSeconds)
         let isFresh = snap.positionAgeSeconds < 90
@@ -458,9 +474,15 @@ final class FlightTracker {
         if let actual = airports?.nearest(to: coordinate) {
             if let planned = flight?.destination {
                 if planned.ident != actual.ident {
-                    // Diversion: keep the plan on record, log the reality.
                     flight?.plannedDestinationIdent = planned.ident
-                    flight?.notes = "Landed at \(actual.ident) (planned \(planned.ident))."
+                    if flight?.via?.contains(where: { $0.ident == actual.ident }) == true {
+                        // Landing at a planned via stop is the leg ending as
+                        // planned — a fuel stop, not a diversion.
+                        flight?.notes = "Landed at planned stop \(actual.ident), en route to \(planned.ident)."
+                    } else {
+                        // Diversion: keep the plan on record, log the reality.
+                        flight?.notes = "Landed at \(actual.ident) (planned \(planned.ident))."
+                    }
                     flight?.destination = actual
                 }
             } else {
@@ -547,7 +569,16 @@ final class FlightTracker {
     var remainingNM: Double? {
         guard let dest = flight?.destination, let latest else { return nil }
         let here = CLLocationCoordinate2D(latitude: latest.latitude, longitude: latest.longitude)
-        return GreatCircle.distanceNM(from: here, to: dest.coordinate)
+        // Multi-leg route: fly to the next stop not yet reached, then along
+        // the remaining planned legs.
+        let pending = (flight?.via ?? []).filter { !visitedViaIdents.contains($0.ident) }
+        let stops = pending + [dest]
+        var total = GreatCircle.distanceNM(from: here, to: stops[0].coordinate)
+        for i in 1..<stops.count {
+            total += GreatCircle.distanceNM(from: stops[i - 1].coordinate,
+                                            to: stops[i].coordinate)
+        }
+        return total
     }
 
     /// 0…1 along the planned route, for the progress bar.

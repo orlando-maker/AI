@@ -44,6 +44,8 @@ struct ManualFlightEntryView: View {
             }
         }
         .navigationTitle("Add Past Flight")
+        .scrollContentBackground(.hidden)
+        .background(Theme.paper)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {

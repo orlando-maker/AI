@@ -35,6 +35,8 @@ struct AircraftEditView: View {
             transponderSection
         }
         .navigationTitle(isEditing ? "Edit Aircraft" : "Add Aircraft")
+        .scrollContentBackground(.hidden)
+        .background(Theme.paper)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {

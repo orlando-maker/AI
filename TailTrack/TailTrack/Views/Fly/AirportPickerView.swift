@@ -71,6 +71,8 @@ struct AirportPickerView: View {
             }
             .searchable(text: $query, prompt: "KSQL, San Carlos, SLC…")
             .navigationTitle(title)
+            .scrollContentBackground(.hidden)
+            .background(Theme.paper)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

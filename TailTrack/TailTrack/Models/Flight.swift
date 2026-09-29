@@ -108,7 +108,8 @@ struct Flight: Codable, Identifiable {
     var routeTitle: String {
         let dep = departure?.ident ?? "———"
         let dest = destination?.ident ?? "———"
-        return "\(dep) → \(dest)"
+        let stops = (via ?? []).map(\.ident)
+        return ([dep] + stops + [dest]).joined(separator: " → ")
     }
 
     /// Whether this flight captured enough to be worth keeping in the logbook.

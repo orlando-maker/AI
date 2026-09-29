@@ -31,6 +31,8 @@ struct LegalView: View {
             }
         }
         .navigationTitle("Legal")
+        .scrollContentBackground(.hidden)
+        .background(Theme.paper)
         .navigationBarTitleDisplayMode(.inline)
     }
 }

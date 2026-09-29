@@ -47,6 +47,8 @@ struct LandingDetailsSheet: View {
             }
         }
         .navigationTitle("Landing Details")
+        .scrollContentBackground(.hidden)
+        .background(Theme.paper)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {

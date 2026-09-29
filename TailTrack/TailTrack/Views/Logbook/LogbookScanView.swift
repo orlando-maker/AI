@@ -47,6 +47,8 @@ struct LogbookScanView: View {
             }
         }
         .navigationTitle("Scan Logbook Page")
+        .scrollContentBackground(.hidden)
+        .background(Theme.paper)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
