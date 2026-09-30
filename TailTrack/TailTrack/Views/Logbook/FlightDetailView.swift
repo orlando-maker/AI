@@ -4,9 +4,21 @@ import CoreLocation
 /// A saved flight: route summary, map of the flown track, stats, notes,
 /// and (Pro) GPX/CSV export.
 struct FlightDetailView: View {
-    let flight: Flight
+    private let initialFlight: Flight
+
+    init(flight: Flight) {
+        initialFlight = flight
+    }
 
     @Environment(LogbookStore.self) private var logbook
+    @State private var findingTrack = false
+
+    /// The logbook's live copy, so attaching a track (or any other edit)
+    /// shows up here immediately.
+    private var flight: Flight {
+        logbook.flights.first { $0.id == initialFlight.id } ?? initialFlight
+    }
+
     @Environment(ProStore.self) private var pro
     @State private var notes: String = ""
     @State private var showingPaywall = false
@@ -20,7 +32,12 @@ struct FlightDetailView: View {
         ScrollView {
             VStack(spacing: 16) {
                 summaryCard
-                FlightReplaySection(flight: flight)
+                if flight.track.count < 2 {
+                    findTrackCard
+                } else {
+                    FlightReplaySection(flight: flight)
+                        .id(flight.track.count)
+                }
                 storyCard
                 if flight.landingsCount == nil && confirmedLandings == nil
                     && flight.detectedLandings >= 2 {
@@ -40,6 +57,15 @@ struct FlightDetailView: View {
         .navigationTitle(flight.routeTitle)
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $showingPaywall) { PaywallView() }
+        .sheet(isPresented: $findingTrack) {
+            HistoricalTrackMatchView(flight: flight)
+        }
+        .onChange(of: flight.track.count) { _, _ in
+            if pro.isPro { prepareExports() }
+        }
+        .onChange(of: flight.notes) { _, newNotes in
+            notes = newNotes
+        }
         .onAppear {
             notes = flight.notes
             suggestedLandings = flight.detectedLandings
@@ -80,6 +106,30 @@ struct FlightDetailView: View {
         .padding(18)
         .background(Theme.sunset, in: RoundedRectangle(cornerRadius: 22))
         .shadow(color: .black.opacity(0.2), radius: 10, y: 5)
+    }
+
+    /// Typed-in and scanned entries have no path yet; the ADS-B archives
+    /// usually do.
+    private var findTrackCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label("No flight path yet", systemImage: "point.topleft.down.to.point.bottomright.curvepath")
+                .font(.headline)
+            Text("TailTrack can look up \(flight.tailNumber)'s real ADS-B track for this day, with the map, altitude profile and replay, just like a live-tracked flight.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+            Button {
+                findingTrack = true
+            } label: {
+                Label("Find the flight path", systemImage: "magnifyingglass")
+                    .font(.callout.weight(.semibold))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 4)
+            }
+            .buttonStyle(.borderedProminent)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Theme.card, in: RoundedRectangle(cornerRadius: 16))
     }
 
     private var storyCard: some View {

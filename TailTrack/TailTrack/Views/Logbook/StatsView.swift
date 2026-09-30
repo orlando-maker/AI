@@ -74,7 +74,7 @@ struct StatsView: View {
                 Text("🎁")
                     .font(.title2)
                 VStack(alignment: .leading, spacing: 1) {
-                    Text("\(calendar.component(.year, from: Date())) in the Air")
+                    Text("\(String(calendar.component(.year, from: Date()))) in the Air")
                         .font(.headline)
                     Text("Your year, wrapped — swipe through and share it")
                         .font(.caption)

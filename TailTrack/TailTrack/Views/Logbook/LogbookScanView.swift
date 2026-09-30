@@ -84,7 +84,7 @@ struct LogbookScanView: View {
                       systemImage: "doc.viewfinder")
             }
         } footer: {
-            Text("Take a straight-on, well-lit photo of the page first. Recognition runs entirely on your iPhone. Review every entry before importing — OCR on handwriting is helpful, not perfect.")
+            Text("Take a straight-on, well-lit photo of the page first. Recognition runs entirely on your iPhone. Review every entry before importing — OCR on handwriting is helpful, not perfect. Afterwards, open any imported flight and tap Find the flight path to pull in its real ADS-B track.")
         }
     }
 

@@ -58,6 +58,34 @@ final class LogbookStore {
         save()
     }
 
+    /// Gives a logbook entry (typed in or scanned) its real ADS-B flight
+    /// path. The pilot's own airports win over the ADS-B guesses, and the
+    /// originally logged time is kept in the notes, since the logbook
+    /// figure is often Hobbs time while ADS-B measures wheels-up to
+    /// touchdown.
+    func attachHistoricalTrack(flightID: UUID, segment: FlightSegment,
+                               departure: Airport?, destination: Airport?, hex: String) {
+        guard let idx = flights.firstIndex(where: { $0.id == flightID }) else { return }
+        var flight = flights[idx]
+        if flight.landingTime != nil, let logged = flight.flightTime,
+           abs(logged - segment.duration) >= 6 * 60 {
+            let hours = String(format: "%.1f", logged / 3600)
+            let line = "Logbook entry: \(hours) h. Times below are from ADS-B."
+            flight.notes = flight.notes.isEmpty ? line : flight.notes + "\n" + line
+        }
+        flight.track = FlightSegmenter.thinned(segment.points)
+        flight.takeoffTime = segment.takeoff
+        flight.landingTime = segment.landing
+        flight.startedTracking = segment.points.first?.time ?? segment.takeoff
+        flight.firstContact = segment.points.first?.time
+        flight.icaoHex = hex
+        if flight.departure == nil { flight.departure = departure }
+        if flight.destination == nil { flight.destination = destination }
+        flights[idx] = flight
+        flights.sort { $0.startedTracking > $1.startedTracking }
+        save()
+    }
+
     func updateLandings(for flightID: UUID, landings: Int) {
         guard let idx = flights.firstIndex(where: { $0.id == flightID }) else { return }
         flights[idx].landingsCount = max(0, landings)

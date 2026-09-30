@@ -135,7 +135,7 @@ struct YearWrappedView: View {
         VStack(spacing: 20) {
             Text("🏁")
                 .font(.system(size: 56))
-            Text("That was \(year).")
+            Text("That was \(String(year)).")
                 .font(.system(size: 36, weight: .heavy, design: .rounded))
                 .foregroundStyle(.white)
             Text("Fly safe out there.")
@@ -157,7 +157,7 @@ struct YearWrappedView: View {
 
     private func renderShareCard() {
         let card = VStack(alignment: .leading, spacing: 14) {
-            Text("\(year) IN THE AIR")
+            Text("\(String(year)) IN THE AIR")
                 .font(.system(size: 15, weight: .heavy, design: .rounded))
                 .tracking(2)
                 .foregroundStyle(Theme.proGold)

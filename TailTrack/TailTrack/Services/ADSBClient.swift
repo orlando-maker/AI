@@ -339,12 +339,107 @@ struct ADSBClient {
         return []
     }
 
+    // MARK: - Past days (logbook backfill)
+
+    /// Every position the networks recorded for this aircraft around one
+    /// local calendar day, from the daily tar1090 history archives adsb.lol
+    /// and adsb.fi publish. A local day straddles two UTC archive days, so
+    /// each overlapping one is fetched, and the window runs a few hours
+    /// past midnight so a late-evening flight keeps its landing. Today's
+    /// UTC day isn't archived yet, so it comes from the live trace.
+    func dayTrack(hex: String, localDay: Date, calendar: Calendar = .current) async -> [TrackPoint] {
+        let h = hex.lowercased()
+        let start = calendar.startOfDay(for: localDay)
+        guard let end = calendar.date(byAdding: .day, value: 1, to: start) else { return [] }
+        let windowEnd = end.addingTimeInterval(4 * 3600)
+
+        let utc: Calendar = {
+            var calendar = Calendar(identifier: .gregorian)
+            calendar.timeZone = TimeZone(identifier: "UTC") ?? .current
+            return calendar
+        }()
+        let todayUTC = utc.startOfDay(for: Date())
+        var archiveDays: [Date] = []
+        var day = utc.startOfDay(for: start)
+        while day < windowEnd, day <= todayUTC {
+            archiveDays.append(day)
+            guard let next = utc.date(byAdding: .day, value: 1, to: day) else { break }
+            day = next
+        }
+
+        let fetched = await withTaskGroup(of: [TrackPoint].self) { group in
+            for archiveDay in archiveDays {
+                group.addTask {
+                    if archiveDay >= todayUTC {
+                        return await historicalTrack(hex: h)
+                    }
+                    return await archivedTrace(hex: h, utcDay: archiveDay, utc: utc)
+                }
+            }
+            var all: [TrackPoint] = []
+            for await chunk in group { all += chunk }
+            return all
+        }
+
+        // The live trace and yesterday's archive overlap; keep one sample
+        // per timestamp.
+        var seen = Set<Int>()
+        return fetched
+            .filter { $0.time >= start && $0.time < windowEnd }
+            .sorted { $0.time < $1.time }
+            .filter { seen.insert(Int($0.time.timeIntervalSince1970)).inserted }
+    }
+
+    private func archivedTrace(hex: String, utcDay: Date, utc: Calendar) async -> [TrackPoint] {
+        let c = utc.dateComponents([.year, .month, .day], from: utcDay)
+        guard let y = c.year, let m = c.month, let d = c.day else { return [] }
+        let date = String(format: "%04d/%02d/%02d", y, m, d)
+        let path = "globe_history/\(date)/traces/\(hex.suffix(2))/trace_full_\(hex).json"
+        for host in ["https://globe.adsb.lol", "https://globe.adsb.fi"] {
+            if let url = URL(string: "\(host)/\(path)"),
+               let points = try? await fetchTar1090Trace(url: url), !points.isEmpty {
+                return points
+            }
+        }
+        return []
+    }
+
+    /// Some mirrors serve archived traces as raw .gz bytes without a
+    /// Content-Encoding header, so URLSession hands them over compressed.
+    /// Strips the gzip wrapper (RFC 1952) and inflates the DEFLATE body;
+    /// anything that isn't gzip passes through untouched.
+    static func gunzipIfNeeded(_ data: Data) -> Data {
+        let bytes = [UInt8](data)
+        guard bytes.count > 18, bytes[0] == 0x1f, bytes[1] == 0x8b, bytes[2] == 8 else {
+            return data
+        }
+        let flags = bytes[3]
+        var offset = 10
+        if flags & 0x04 != 0 {                      // FEXTRA
+            let extraLength = Int(bytes[offset]) | (Int(bytes[offset + 1]) << 8)
+            offset += 2 + extraLength
+        }
+        for flag: UInt8 in [0x08, 0x10] where flags & flag != 0 {   // FNAME, FCOMMENT
+            while offset < bytes.count, bytes[offset] != 0 { offset += 1 }
+            offset += 1
+        }
+        if flags & 0x02 != 0 { offset += 2 }        // FHCRC
+        guard offset < bytes.count - 8 else { return data }
+        let body = Data(bytes[offset..<(bytes.count - 8)])
+        // Apple's .zlib is raw DEFLATE (RFC 1951) — exactly gzip's payload.
+        guard let inflated = try? (body as NSData).decompressed(using: .zlib) else {
+            return data
+        }
+        return inflated as Data
+    }
+
     /// tar1090 trace format: {"timestamp": base, "trace": [[secondsOffset,
     /// lat, lon, alt_baro|"ground", gs, track, flags, verticalRate, …], …]}
     private func fetchTar1090Trace(url: URL) async throws -> [TrackPoint] {
         var request = URLRequest(url: url)
         request.setValue("TailTrack iOS", forHTTPHeaderField: "User-Agent")
-        let (data, response) = try await session.data(for: request)
+        let (rawData, response) = try await session.data(for: request)
+        let data = Self.gunzipIfNeeded(rawData)
         guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode),
               let root = try JSONSerialization.jsonObject(with: data) as? [String: Any],
               let base = (root["timestamp"] as? NSNumber)?.doubleValue,
