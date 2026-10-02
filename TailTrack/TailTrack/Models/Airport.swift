@@ -22,6 +22,21 @@ struct Airport: Codable, Identifiable, Hashable {
 
     /// "San Carlos, US-CA" style secondary line.
     var locationDescription: String {
-        [municipality, region].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: ", ")
+        [municipality, regionDescription].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: ", ")
+    }
+
+    /// OurAirports region codes, read the way a pilot would say them:
+    /// "US-CA" → "CA", "CA-BC" → "BC, Canada", "MP-U-A" → "Northern Mariana
+    /// Islands", "BS-NP" → "Bahamas". Country names come from the system,
+    /// so they follow the phone's language.
+    var regionDescription: String? {
+        guard let region, !region.isEmpty else { return nil }
+        let parts = region.split(separator: "-", maxSplits: 1).map(String.init)
+        let country = parts[0]
+        let subdivision = parts.count > 1 ? parts[1] : ""
+        if country == "US" { return subdivision.isEmpty ? "USA" : subdivision }
+        let countryName = Locale.current.localizedString(forRegionCode: country) ?? country
+        if country == "CA", !subdivision.isEmpty { return "\(subdivision), \(countryName)" }
+        return countryName
     }
 }

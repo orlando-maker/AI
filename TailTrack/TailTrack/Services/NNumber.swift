@@ -35,7 +35,9 @@ enum NNumber {
         let s = raw.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
         guard !s.isEmpty, !s.hasPrefix("N") else { return s }
         let candidate = "N" + s
-        return matchesPattern(candidate) ? candidate : s
+        // Neighbors' registrations typed without their hyphen ("CFABC")
+        // get it back, since that's how the ADS-B networks store them.
+        return matchesPattern(candidate) ? candidate : ForeignRegistration.hyphenated(s)
     }
 
     static func isValid(_ tailNumber: String) -> Bool {

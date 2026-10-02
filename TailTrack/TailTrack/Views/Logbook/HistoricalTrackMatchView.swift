@@ -38,7 +38,7 @@ struct HistoricalTrackMatchView: View {
         if let plane = fleet.aircraft.first(where: { NNumber.normalize($0.tailNumber) == tail }) {
             return plane.resolvedHex
         }
-        return NNumber.icaoHex(for: tail)
+        return NNumber.icaoHex(for: tail) ?? ForeignRegistration.canadianHex(for: tail)
     }
 
     var body: some View {

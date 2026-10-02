@@ -119,6 +119,9 @@ enum LegalDocuments {
     codes you look up, to return METAR and TAF weather.
     • datis.clowd.io — receives an airport code, to return that airport's \
     digital ATIS.
+    • Radio receivers you add yourself — only when you press play, the app \
+    connects to the stream address you entered. LiveATC.net links open in \
+    its own app or your browser; TailTrack sends it nothing.
     • Openverse (api.openverse.org) — only when you use "Find Open Photo," \
     receives your search term (e.g. "Cessna 152 aircraft").
     We do not send these services your name, profile, or logbook. Each \

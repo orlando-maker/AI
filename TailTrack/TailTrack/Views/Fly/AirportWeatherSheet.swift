@@ -61,6 +61,17 @@ struct AirportWeatherSheet: View {
                         frequenciesCard
                     }
 
+                    if let liveATC = RadioPlayer.liveATCURL(for: ident) {
+                        Link(destination: liveATC) {
+                            Label("Listen to \(ident) on LiveATC.net", systemImage: "headphones")
+                                .font(.callout.weight(.semibold))
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
+                                .cardSurface(12)
+                        }
+                        .buttonStyle(.pressable)
+                    }
+
                     Text("Advisory only. Always listen to the official ATIS and get a proper weather briefing before flight. Digital ATIS via datis.clowd.io; frequencies from OurAirports. Verify them in the Chart Supplement.")
                         .font(.caption)
                         .foregroundStyle(.secondary)

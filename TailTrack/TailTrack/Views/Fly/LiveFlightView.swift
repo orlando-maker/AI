@@ -47,6 +47,7 @@ struct LiveFlightView: View {
                 }
                 statsGrid
                 mapCard
+                RadioLogCard()
                 controls
             }
             .padding()

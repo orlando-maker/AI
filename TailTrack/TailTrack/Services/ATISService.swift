@@ -54,9 +54,11 @@ struct ATISService {
 
     func reports(for ident: String) async -> [ATISReport] {
         let code = ident.uppercased()
-        // Only US ICAO idents (KSFO, PANC, PHNL) can have D-ATIS; skip the
-        // request for strips like E16 or 0Q3.
-        guard code.range(of: "^[KP][A-Z]{3}$", options: .regularExpression) != nil,
+        // Only FAA airports can have D-ATIS: the lower 48 (K), Alaska,
+        // Hawaii, Guam and the Northern Marianas (P), Puerto Rico and the
+        // US Virgin Islands (TJ, TI). Skip strips like E16 and non-US fields.
+        guard code.range(of: "^(K[A-Z]{3}|P[A-Z]{3}|TJ[A-Z]{2}|TI[A-Z]{2})$",
+                         options: .regularExpression) != nil,
               let url = URL(string: "https://datis.clowd.io/api/\(code)") else { return [] }
         var request = URLRequest(url: url)
         request.setValue("TailTrack iOS", forHTTPHeaderField: "User-Agent")

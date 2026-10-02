@@ -44,6 +44,9 @@ struct Flight: Codable, Identifiable {
     var arrivalMetar: String?
     /// Pilot-confirmed landing count (touch-and-gos included).
     var landingsCount: Int?
+    /// Frequencies, clearances, squawk codes and ATIS heard on this flight.
+    /// Optional so flights saved before the radio log existed still decode.
+    var radioLog: [RadioLogEntry]?
 
     // MARK: - Derived stats
 

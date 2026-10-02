@@ -86,7 +86,7 @@ enum ATISDecoder {
         let awaitingTime = result.issuedZulu == nil
         let isWeather = cleaned.enumerated().contains { i, token in
             decodeWind(token) != nil
-                || match(token, #"^A\d{4}$"#) != nil
+                || match(token, #"^[AQ]\d{4}$"#) != nil
                 || (awaitingTime && match(token, #"^\d{4}Z$"#) != nil)
                 || ((token == "INFO" || token == "INFORMATION") && i + 1 < cleaned.count
                     && phonetic[cleaned[i + 1]] != nil)
@@ -150,6 +150,9 @@ enum ATISDecoder {
                 matched = true
             } else if let alt = match(token, #"^A(\d{2})(\d{2})$"#) {
                 result.altimeter = "\(alt[1]).\(alt[2]) inHg"
+                matched = true
+            } else if let qnh = match(token, #"^Q(\d{4})$"#), let hPa = Int(qnh[1]) {
+                result.altimeter = "\(hPa) hPa"
                 matched = true
             } else if let wx = decodePhenomena(token) {
                 result.weather.append(wx)
@@ -312,5 +315,19 @@ enum ATISDecoder {
         return today > now.addingTimeInterval(10 * 60)
             ? utc.date(byAdding: .day, value: -1, to: today)
             : today
+    }
+}
+
+extension DecodedATIS {
+    /// One line for the radio log, the way a pilot jots ATIS on a
+    /// kneeboard: wind, altimeter, and the runway in use.
+    var kneeboardSummary: String {
+        var parts: [String] = []
+        if let wind { parts.append("Wind \(wind)") }
+        if let altimeter { parts.append("Altimeter \(altimeter)") }
+        if let runways = landing.first ?? departing.first ?? approaches.first {
+            parts.append(String(runways.dropLast(runways.hasSuffix(".") ? 1 : 0)))
+        }
+        return parts.joined(separator: " · ")
     }
 }

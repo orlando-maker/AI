@@ -31,6 +31,13 @@ targets:
           UIColorName: ""
         ITSAppUsesNonExemptEncryption: false
         NSSupportsLiveActivities: true
+        # Live airband audio from the pilot's own receiver keeps playing
+        # with the screen locked. Home-built receivers (Icecast) usually
+        # serve plain http, which is allowed for media only.
+        UIBackgroundModes:
+          - audio
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoadsForMedia: true
         UIRequiresFullScreen: false
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait

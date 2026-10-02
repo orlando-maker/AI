@@ -47,6 +47,9 @@ struct FlightDetailView: View {
                 if flight.departureMetar != nil || flight.arrivalMetar != nil {
                     weatherCard
                 }
+                if let radioLog = flight.radioLog, !radioLog.isEmpty {
+                    radioLogCard(radioLog)
+                }
                 notesCard
                 exportCard
             }
@@ -177,6 +180,21 @@ struct FlightDetailView: View {
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .cardSurface(16)
+    }
+
+    /// What was heard and set on the radio, in order: frequencies,
+    /// clearances, squawk codes and ATIS.
+    private func radioLogCard(_ entries: [RadioLogEntry]) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label("Radio log", systemImage: "dot.radiowaves.left.and.right")
+                .font(.headline)
+            ForEach(entries) { entry in
+                RadioEntryRow(entry: entry)
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .cardSurface()
     }
 
     private var weatherCard: some View {

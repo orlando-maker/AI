@@ -55,6 +55,12 @@ final class FlightTracker {
     /// Via stops already overflown (or stopped at), so the distance-left
     /// math stops routing through them.
     private var visitedViaIdents: Set<String> = []
+    /// Radio log bookkeeping: the transponder code last logged, a new code
+    /// waiting to prove it's stable, and whether the arrival ATIS is in.
+    private var lastSquawk: String?
+    private var pendingSquawk: String?
+    private var pendingSquawkReports = 0
+    private var loggedArrivalATIS = false
     private let client = ADSBClient()
     private let liveActivity = FlightLiveActivity()
 
@@ -104,6 +110,7 @@ final class FlightTracker {
             via: via.isEmpty ? nil : via,
             startedTracking: Date()
         )
+        resetRadioLog()
         phase = .searching
         NotificationManager.requestAuthorization()
 
@@ -163,6 +170,7 @@ final class FlightTracker {
             destination: destination,
             startedTracking: Date()
         )
+        resetRadioLog()
         phase = .searching
         NotificationManager.requestAuthorization()
 
@@ -325,6 +333,12 @@ final class FlightTracker {
         if flight?.firstContact == nil { flight?.firstContact = snap.fetchedAt }
         if flight?.typeCode.isEmpty == true, let type = snap.typeCode {
             flight?.typeCode = type
+        }
+        trackSquawk(snap)
+        if phase == .enroute, !loggedArrivalATIS, let left = remainingNM, left < 40,
+           let destination = flight?.destination {
+            loggedArrivalATIS = true
+            logATIS(for: destination.ident, arriving: true)
         }
 
         // Passing within a few miles of a planned via stop checks it off,
@@ -498,6 +512,110 @@ final class FlightTracker {
         if let f = flight, f.isMeaningful {
             logbook?.add(f)
             captureWeather(for: f)
+        }
+    }
+
+    // MARK: - Radio log
+
+    /// Adds a pilot-entered line to the radio log, stamped with where the
+    /// aircraft was at that moment.
+    func logRadio(kind: RadioLogEntry.Kind, text: String, detail: String? = nil) {
+        appendRadio(RadioLogEntry(time: Date(), kind: kind, text: text, detail: detail))
+        if kind == .squawk {
+            // The pilot logged the assignment; ADS-B will confirm the same
+            // code shortly and shouldn't add a duplicate line.
+            lastSquawk = text.filter(\.isNumber)
+            pendingSquawk = nil
+        }
+    }
+
+    func deleteRadioEntry(id: UUID) {
+        flight?.radioLog?.removeAll { $0.id == id }
+        persistIfLanded()
+    }
+
+    private func resetRadioLog() {
+        lastSquawk = nil
+        pendingSquawk = nil
+        pendingSquawkReports = 0
+        loggedArrivalATIS = false
+        if let departure = flight?.departure {
+            logATIS(for: departure.ident, arriving: false)
+        }
+    }
+
+    private func appendRadio(_ entry: RadioLogEntry) {
+        var entry = entry
+        if entry.latitude == nil, let latest {
+            entry.latitude = latest.latitude
+            entry.longitude = latest.longitude
+            entry.altitudeFt = latest.baroAltitudeFt
+        }
+        guard flight != nil else { return }
+        flight?.radioLog = (flight?.radioLog ?? []) + [entry]
+        persistIfLanded()
+    }
+
+    /// A landed flight is already in the logbook; keep its copy current.
+    private func persistIfLanded() {
+        guard phase == .arrived || phase == .signalLost,
+              let f = flight, f.isMeaningful else { return }
+        logbook?.add(f)
+    }
+
+    /// Logs the transponder code whenever it changes. Pilots dial through
+    /// other codes while setting a new one, so a code is only logged once
+    /// two reports in a row agree.
+    private func trackSquawk(_ snap: ADSBSnapshot) {
+        guard let code = snap.squawk?.trimmingCharacters(in: .whitespaces),
+              Squawk.isValid(code) else { return }
+        guard code != lastSquawk else {
+            pendingSquawk = nil
+            return
+        }
+        if pendingSquawk == code {
+            pendingSquawkReports += 1
+        } else {
+            pendingSquawk = code
+            pendingSquawkReports = 1
+        }
+        guard pendingSquawkReports >= 2 else { return }
+
+        let first = lastSquawk == nil
+        lastSquawk = code
+        pendingSquawk = nil
+        appendRadio(RadioLogEntry(
+            time: snap.fetchedAt,
+            kind: .squawk,
+            text: "Squawk \(code)",
+            detail: first ? "\(Squawk.meaning(code)) · code when tracking began" : Squawk.meaning(code),
+            isAutomatic: true,
+            latitude: snap.latitude,
+            longitude: snap.longitude,
+            altitudeFt: snap.baroAltitudeFt
+        ))
+    }
+
+    /// Writes the airport's current ATIS letter and essentials into the
+    /// log, where the field publishes a digital ATIS.
+    private func logATIS(for ident: String, arriving: Bool) {
+        let flightID = flight?.id
+        Task { [weak self] in
+            let reports = await ATISService().reports(for: ident)
+            guard let self, self.flight?.id == flightID else { return }
+            let preferred: ATISReport.Kind = arriving ? .arrival : .departure
+            guard let report = reports.first(where: { $0.kind == preferred })
+                    ?? reports.first(where: { $0.kind == .combined }) ?? reports.first
+            else { return }
+            let decoded = report.decoded
+            let name = decoded.information ?? report.letter ?? "?"
+            self.appendRadio(RadioLogEntry(
+                time: Date(),
+                kind: .atis,
+                text: "\(ident) \(report.title) \(name)",
+                detail: decoded.kneeboardSummary.isEmpty ? nil : decoded.kneeboardSummary,
+                isAutomatic: true
+            ))
         }
     }
 
