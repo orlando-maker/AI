@@ -67,14 +67,16 @@ struct RootView: View {
                 await airports.downloadFullDatabase()
             }
         }
-        .onAppear { applyAppearanceOverride() }
-        .onChange(of: appearanceRaw) { _, _ in applyAppearanceOverride() }
+        .onAppear { applyAppearanceOverride(animated: false) }
+        .onChange(of: appearanceRaw) { _, _ in applyAppearanceOverride(animated: true) }
     }
 
     /// A forced Light/Dark theme must reach every presentation — sheets and
     /// full-screen covers don't reliably inherit preferredColorScheme from
     /// the presenting view, so the override is applied at the window level.
-    private func applyAppearanceOverride() {
+    /// Switching themes cross-fades rather than flashing the whole screen
+    /// from cream to ink in one frame.
+    private func applyAppearanceOverride(animated: Bool) {
         let style: UIUserInterfaceStyle
         switch AppearanceSetting(rawValue: appearanceRaw) ?? .system {
         case .system: style = .unspecified
@@ -82,8 +84,15 @@ struct RootView: View {
         case .dark: style = .dark
         }
         for scene in UIApplication.shared.connectedScenes {
-            (scene as? UIWindowScene)?.windows.forEach {
-                $0.overrideUserInterfaceStyle = style
+            (scene as? UIWindowScene)?.windows.forEach { window in
+                guard animated else {
+                    window.overrideUserInterfaceStyle = style
+                    return
+                }
+                UIView.transition(with: window, duration: 0.35,
+                                  options: [.transitionCrossDissolve, .allowUserInteraction]) {
+                    window.overrideUserInterfaceStyle = style
+                }
             }
         }
     }

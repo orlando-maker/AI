@@ -51,6 +51,7 @@ struct TrainingView: View {
                     VStack(spacing: 2) {
                         Text(String(format: "%.1f", totalHours))
                             .font(.system(size: 38, weight: .heavy, design: .rounded))
+                            .tracking(-0.9)
                             .monospacedDigit()
                         Text("of \(Int(profile.trainingGoalHours)) hours")
                             .font(.caption.weight(.semibold))

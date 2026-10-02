@@ -71,6 +71,7 @@ struct TermsGateView: View {
                                 .foregroundStyle(.tint)
                             Text("Welcome to TailTrack")
                                 .font(.system(.title, design: .rounded).weight(.heavy))
+                                .tracking(-0.6)
                             Text("Before you fly, a few things to agree to.")
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)

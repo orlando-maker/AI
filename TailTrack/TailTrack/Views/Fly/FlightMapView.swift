@@ -19,6 +19,7 @@ struct FlightMapView: View {
 
     @State private var camera: MapCameraPosition = .automatic
     @State private var followAircraft = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var plannedRoute: [CLLocationCoordinate2D] {
         let stops = ([departure] + via + [destination]).compactMap { $0 }
@@ -205,7 +206,7 @@ struct FlightMapView: View {
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 5)
-                .background(.thinMaterial, in: Capsule())
+                .floatingGlass(Capsule())
                 .padding(8)
             }
         }
@@ -216,15 +217,18 @@ struct FlightMapView: View {
                     if followAircraft {
                         updateFollowCamera(animated: true)
                     } else {
-                        withAnimation { camera = .automatic }
+                        withAnimation(reduceMotion ? nil : Motion.camera) { camera = .automatic }
                     }
                 } label: {
                     Image(systemName: followAircraft ? "location.fill.viewfinder" : "location.viewfinder")
                         .font(.body.weight(.semibold))
+                        .contentTransition(.symbolEffect(.replace))
                         .padding(9)
-                        .background(.thinMaterial, in: Circle())
+                        .floatingGlass(Circle())
                         .foregroundStyle(followAircraft ? Theme.brandOrange : Color.primary)
                 }
+                .buttonStyle(.pressableControl)
+                .sensoryFeedback(.selection, trigger: followAircraft)
                 .padding(10)
             }
         }
@@ -239,7 +243,7 @@ struct FlightMapView: View {
             MapCamera(centerCoordinate: currentPosition, distance: 45_000)
         )
         if animated {
-            withAnimation(.easeInOut(duration: 0.6)) { camera = newCamera }
+            withAnimation(reduceMotion ? nil : Motion.camera) { camera = newCamera }
         } else {
             camera = newCamera
         }

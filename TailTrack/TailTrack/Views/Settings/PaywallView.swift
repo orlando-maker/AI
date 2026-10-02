@@ -27,6 +27,7 @@ struct PaywallView: View {
             .onChange(of: pro.isPro) { _, isPro in
                 if isPro { dismiss() }
             }
+            .sensoryFeedback(.success, trigger: pro.isPro) { _, isPro in isPro }
             .task { await pro.loadProducts() }
         }
     }
@@ -38,6 +39,7 @@ struct PaywallView: View {
                 .foregroundStyle(Theme.proGold)
             Text("TailTrack Pro")
                 .font(.system(.largeTitle, design: .rounded).weight(.heavy))
+                .tracking(-0.8)
                 .foregroundStyle(.white)
             Text("For pilots who fly more than one plane —\nand want their data everywhere.")
                 .font(.subheadline)
@@ -60,7 +62,7 @@ struct PaywallView: View {
             feature("person.3.fill", "Family Sharing", "One purchase covers everyone in your family group.")
         }
         .padding(18)
-        .background(Theme.card, in: RoundedRectangle(cornerRadius: 18))
+        .cardSurface(18)
     }
 
     private func feature(_ icon: String, _ title: String, _ detail: String) -> some View {
@@ -107,12 +109,13 @@ struct PaywallView: View {
                                 .font(.system(.headline, design: .rounded))
                         }
                         .padding(14)
-                        .background(Theme.card, in: RoundedRectangle(cornerRadius: 14))
+                        .cardSurface(14)
                         .overlay(
                             RoundedRectangle(cornerRadius: 14)
                                 .strokeBorder(isBestValue(product) ? Theme.proGold : .clear, lineWidth: 2)
                         )
                     }
+                    .buttonStyle(.pressable)
                     .foregroundStyle(.primary)
                 }
                 if let error = pro.purchaseError {

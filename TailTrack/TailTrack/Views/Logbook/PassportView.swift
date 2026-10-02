@@ -152,7 +152,7 @@ struct PassportView: View {
                         .lineLimit(1)
                 }
                 .padding(12)
-                .background(Theme.card, in: RoundedRectangle(cornerRadius: 14))
+                .cardSurface(14)
             }
         }
     }

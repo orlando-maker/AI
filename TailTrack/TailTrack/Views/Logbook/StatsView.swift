@@ -86,12 +86,13 @@ struct StatsView: View {
                     .foregroundStyle(.tertiary)
             }
             .padding(14)
-            .background(Theme.card, in: RoundedRectangle(cornerRadius: 16))
+            .cardSurface(16)
             .overlay(
                 RoundedRectangle(cornerRadius: 16)
                     .strokeBorder(Theme.proGold.opacity(0.4), lineWidth: 1.5)
             )
         }
+        .buttonStyle(.pressable)
         .foregroundStyle(.primary)
     }
 
@@ -99,6 +100,7 @@ struct StatsView: View {
         VStack(spacing: 12) {
             Text(String(calendar.component(.year, from: Date())))
                 .font(.system(.title2, design: .rounded).weight(.heavy))
+                .tracking(-0.4)
                 .foregroundStyle(.white)
             HStack(spacing: 8) {
                 GlassTile(label: "Flights", value: "\(thisYearFlights.count)")
@@ -137,7 +139,7 @@ struct StatsView: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.card, in: RoundedRectangle(cornerRadius: 16))
+        .cardSurface(16)
     }
 
     private var airportsCard: some View {
@@ -157,7 +159,7 @@ struct StatsView: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.card, in: RoundedRectangle(cornerRadius: 16))
+        .cardSurface(16)
     }
 
     private var recordsCard: some View {
@@ -175,7 +177,7 @@ struct StatsView: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.card, in: RoundedRectangle(cornerRadius: 16))
+        .cardSurface(16)
     }
 
     private func recordRow(_ icon: String, _ title: String, _ value: String) -> some View {

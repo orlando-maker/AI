@@ -42,16 +42,25 @@ struct StatusChip: View {
 private struct PulseRing: View {
     let color: Color
     @State private var pulsing = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        Circle()
-            .stroke(color, lineWidth: 1.5)
-            .scaleEffect(pulsing ? 2.4 : 1)
-            .opacity(pulsing ? 0 : 0.8)
-            .onAppear {
-                withAnimation(.easeOut(duration: 1.4).repeatForever(autoreverses: false)) {
-                    pulsing = true
+        if reduceMotion {
+            // An endless pulse is exactly the motion Reduce Motion asks to
+            // drop; a still halo keeps the "live" signal.
+            Circle()
+                .stroke(color.opacity(0.45), lineWidth: 1.5)
+                .scaleEffect(1.7)
+        } else {
+            Circle()
+                .stroke(color, lineWidth: 1.5)
+                .scaleEffect(pulsing ? 2.4 : 1)
+                .opacity(pulsing ? 0 : 0.8)
+                .onAppear {
+                    withAnimation(.easeOut(duration: 1.4).repeatForever(autoreverses: false)) {
+                        pulsing = true
+                    }
                 }
-            }
+        }
     }
 }

@@ -104,12 +104,68 @@ enum AppearanceSetting: String, CaseIterable, Identifiable {
     static let storageKey = "appearancePreference"
 }
 
+/// The app's motion vocabulary, after Apple's fluid-interface defaults:
+/// springs everywhere (they start from the on-screen value and carry
+/// velocity, so any motion can be interrupted mid-flight), critically
+/// damped unless the user's own gesture supplied momentum.
+enum Motion {
+    /// Default for anything that moves: no overshoot, settles calmly.
+    static let standard = Animation.spring(response: 0.35, dampingFraction: 1.0)
+    /// Press release and small state flips.
+    static let quick = Animation.spring(response: 0.25, dampingFraction: 1.0)
+    /// Slow, continuous glides such as live progress along the route.
+    static let glide = Animation.spring(response: 0.8, dampingFraction: 1.0)
+    /// Map camera moves.
+    static let camera = Animation.spring(response: 0.6, dampingFraction: 1.0)
+}
+
+/// Touch feedback that lands the instant a finger does: the surface dips
+/// on touch-down with no animation in the way, then springs back on
+/// release. Commit still happens on touch-up, so a drag-away cancels.
+struct PressableButtonStyle: ButtonStyle {
+    var pressedScale: CGFloat = 0.97
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? pressedScale : 1)
+            .brightness(configuration.isPressed ? -0.02 : 0)
+            .animation(configuration.isPressed ? nil : Motion.quick,
+                       value: configuration.isPressed)
+    }
+}
+
+extension ButtonStyle where Self == PressableButtonStyle {
+    /// Card-sized surfaces.
+    static var pressable: PressableButtonStyle { PressableButtonStyle() }
+    /// Small glass controls, which need a deeper dip to read as pressed.
+    static var pressableControl: PressableButtonStyle { PressableButtonStyle(pressedScale: 0.9) }
+}
+
 extension View {
     /// Keeps card layouts a readable width on iPad instead of stretching
     /// edge to edge.
     func readableContentWidth() -> some View {
         frame(maxWidth: 700)
             .frame(maxWidth: .infinity)
+    }
+
+    /// A card on the paper: solid cream (ink at night), with a hairline
+    /// edge so cream-on-cream still reads as a separate layer.
+    func cardSurface(_ cornerRadius: CGFloat = 16) -> some View {
+        background(Theme.card, in: RoundedRectangle(cornerRadius: cornerRadius))
+            .overlay(
+                RoundedRectangle(cornerRadius: cornerRadius)
+                    .strokeBorder(Color.primary.opacity(0.07), lineWidth: 0.5)
+            )
+    }
+
+    /// Floating glass chrome over the map: system material (which turns
+    /// solid on its own under Reduce Transparency), a bright rim where
+    /// light catches the edge, and a soft shadow lifting it off the map.
+    func floatingGlass<S: InsettableShape>(_ shape: S) -> some View {
+        background(.thinMaterial, in: shape)
+            .overlay(shape.strokeBorder(.white.opacity(0.25), lineWidth: 0.5))
+            .shadow(color: .black.opacity(0.14), radius: 6, y: 2)
     }
 }
 
@@ -123,7 +179,8 @@ struct GlassTile: View {
             Text(label)
                 .font(.caption2.weight(.semibold).monospaced())
                 .textCase(.uppercase)
-                .foregroundStyle(.white.opacity(0.65))
+                .tracking(0.6)
+                .foregroundStyle(.white.opacity(0.7))
             Text(value)
                 .font(.system(.subheadline, design: .rounded).weight(.bold))
                 .monospacedDigit()

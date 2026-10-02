@@ -97,6 +97,7 @@ struct HistoricalTrackMatchView: View {
                 }
             }
             .task { await load() }
+            .sensoryFeedback(.selection, trigger: selectedID) { old, new in old != nil && new != nil }
             .onChange(of: matchByTime) { _, _ in selectBest() }
             .onChange(of: takeoffAround) { _, _ in selectBest() }
         }

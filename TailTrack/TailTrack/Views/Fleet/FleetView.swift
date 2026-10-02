@@ -39,6 +39,7 @@ struct FleetView: View {
             }
             .navigationTitle("Aircraft")
             .scrollContentBackground(.hidden)
+            .sensoryFeedback(.success, trigger: fleet.aircraft.count) { old, new in new > old }
             .background(Theme.paper)
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {

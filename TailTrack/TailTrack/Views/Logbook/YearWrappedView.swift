@@ -120,6 +120,7 @@ struct YearWrappedView: View {
                 .font(.system(size: 56))
             Text(headline)
                 .font(.system(size: 42, weight: .heavy, design: .rounded))
+                .tracking(-1.0)
                 .foregroundStyle(.white)
                 .multilineTextAlignment(.center)
                 .minimumScaleFactor(0.5)
@@ -137,6 +138,7 @@ struct YearWrappedView: View {
                 .font(.system(size: 56))
             Text("That was \(String(year)).")
                 .font(.system(size: 36, weight: .heavy, design: .rounded))
+                .tracking(-0.8)
                 .foregroundStyle(.white)
             Text("Fly safe out there.")
                 .font(.headline)
@@ -159,6 +161,7 @@ struct YearWrappedView: View {
         let card = VStack(alignment: .leading, spacing: 14) {
             Text("\(String(year)) IN THE AIR")
                 .font(.system(size: 15, weight: .heavy, design: .rounded))
+                .tracking(1.2)
                 .tracking(2)
                 .foregroundStyle(Theme.proGold)
             HStack(spacing: 12) {

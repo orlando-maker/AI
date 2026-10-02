@@ -50,8 +50,9 @@ struct FlightReplaySection: View {
                     Image(systemName: isPlaying ? "pause.circle.fill" : "play.circle.fill")
                         .font(.system(size: 36))
                         .foregroundStyle(.tint)
+                        .contentTransition(.symbolEffect(.replace))
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.pressableControl)
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(currentPoint.map { Format.localTime($0.time) } ?? "—")
@@ -75,7 +76,7 @@ struct FlightReplaySection: View {
             Slider(value: $scrubIndex, in: 0...Double(max(1, track.count - 1)))
         }
         .padding(14)
-        .background(Theme.card, in: RoundedRectangle(cornerRadius: 16))
+        .cardSurface(16)
         .task(id: isPlaying) {
             guard isPlaying, track.count > 1 else { return }
             let maxIndex = Double(track.count - 1)
@@ -166,7 +167,7 @@ struct AltitudeProfileView: View {
                     }
             )
         }
-        .background(Theme.card, in: RoundedRectangle(cornerRadius: 16))
+        .cardSurface(16)
         .clipShape(RoundedRectangle(cornerRadius: 16))
     }
 

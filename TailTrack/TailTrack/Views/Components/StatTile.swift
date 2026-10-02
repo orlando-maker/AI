@@ -11,6 +11,7 @@ struct StatTile: View {
                 .font(.caption2.monospaced())
                 .foregroundStyle(.secondary)
                 .textCase(.uppercase)
+                .tracking(0.6)
             Text(value)
                 .font(.system(.headline, design: .rounded))
                 .monospacedDigit()
@@ -21,7 +22,6 @@ struct StatTile: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(10)
-        .background(Theme.card,
-                    in: RoundedRectangle(cornerRadius: 10))
+        .cardSurface(10)
     }
 }

@@ -46,7 +46,7 @@ struct FullScreenFlightMapView: View {
                 Image(systemName: "xmark")
                     .font(.body.weight(.semibold))
                     .padding(10)
-                    .background(.thinMaterial, in: Circle())
+                    .floatingGlass(Circle())
             }
             .foregroundStyle(.primary)
 
@@ -65,7 +65,7 @@ struct FullScreenFlightMapView: View {
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
-            .background(.thinMaterial, in: Capsule())
+            .floatingGlass(Capsule())
 
             Spacer()
 
@@ -74,8 +74,9 @@ struct FullScreenFlightMapView: View {
             } label: {
                 Image(systemName: showTraffic ? "airplane.circle.fill" : "airplane.circle")
                     .font(.body.weight(.semibold))
+                    .contentTransition(.symbolEffect(.replace))
                     .padding(10)
-                    .background(.thinMaterial, in: Circle())
+                    .floatingGlass(Circle())
             }
             .foregroundStyle(showTraffic ? Theme.brandOrange : Color.primary)
 
@@ -88,11 +89,15 @@ struct FullScreenFlightMapView: View {
             } label: {
                 Image(systemName: hybridMap ? "map.fill" : "globe.americas.fill")
                     .font(.body.weight(.semibold))
+                    .contentTransition(.symbolEffect(.replace))
                     .padding(10)
-                    .background(.thinMaterial, in: Circle())
+                    .floatingGlass(Circle())
             }
             .foregroundStyle(.primary)
         }
+        .buttonStyle(.pressableControl)
+        .sensoryFeedback(.selection, trigger: showTraffic)
+        .sensoryFeedback(.selection, trigger: hybridMap)
         .sheet(isPresented: $showingPaywall) { PaywallView() }
     }
 
@@ -104,13 +109,14 @@ struct FullScreenFlightMapView: View {
             fullMapStat("ETA", tracker.eta.map(Format.localTime) ?? "—")
         }
         .padding(.vertical, 10)
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16))
+        .floatingGlass(RoundedRectangle(cornerRadius: 16))
     }
 
     private func fullMapStat(_ label: String, _ value: String) -> some View {
         VStack(spacing: 2) {
             Text(label)
                 .font(.system(size: 10, weight: .bold))
+                .tracking(0.6)
                 .foregroundStyle(.secondary)
             Text(value)
                 .font(.system(.subheadline, design: .rounded).weight(.bold))

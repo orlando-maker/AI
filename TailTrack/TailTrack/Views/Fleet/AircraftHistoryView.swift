@@ -46,7 +46,7 @@ struct AircraftHistoryView: View {
                 if let route = mostCommonRoute {
                     LabeledContent("Most flown route", value: route)
                         .padding(16)
-                        .background(Theme.card, in: RoundedRectangle(cornerRadius: 16))
+                        .cardSurface(16)
                 }
             }
             .padding()

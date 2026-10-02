@@ -80,6 +80,7 @@ struct ProfileView: View {
                 HStack(spacing: 8) {
                     Text(profile.name.isEmpty ? "Add your name" : profile.name.uppercased())
                         .font(.system(.title2, design: .rounded).weight(.heavy))
+                        .tracking(-0.4)
                         .foregroundStyle(.white)
                     if pro.isPro {
                         Text("PRO")
@@ -210,7 +211,7 @@ struct ProfileView: View {
                 }
             }
             .padding(16)
-            .background(Theme.card, in: RoundedRectangle(cornerRadius: 16))
+            .cardSurface(16)
         }
         .foregroundStyle(.primary)
     }
@@ -234,7 +235,7 @@ struct ProfileView: View {
                     .foregroundStyle(.tertiary)
             }
             .padding(16)
-            .background(Theme.card, in: RoundedRectangle(cornerRadius: 16))
+            .cardSurface(16)
         }
         .foregroundStyle(.primary)
     }
@@ -254,7 +255,7 @@ struct ProfileView: View {
                 .font(.callout)
             }
             .padding()
-            .background(Theme.card, in: RoundedRectangle(cornerRadius: 14))
+            .cardSurface(14)
         } else {
             VStack(spacing: 10) {
                 if appleSignInEnabled {

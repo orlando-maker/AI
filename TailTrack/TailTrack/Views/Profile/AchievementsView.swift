@@ -45,6 +45,7 @@ struct AchievementsView: View {
         VStack(spacing: 6) {
             Text("\(unlockedIDs.count) of \(AchievementCatalog.all.count)")
                 .font(.system(.largeTitle, design: .rounded).weight(.heavy))
+                .tracking(-0.8)
             Text("badges earned")
                 .font(.caption.weight(.semibold))
                 .textCase(.uppercase)
@@ -82,7 +83,7 @@ struct AchievementsView: View {
             }
         }
         .padding(16)
-        .background(Theme.card, in: RoundedRectangle(cornerRadius: 18))
+        .cardSurface(18)
     }
 
     private var gameCenterCard: some View {
@@ -115,6 +116,6 @@ struct AchievementsView: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity)
-        .background(Theme.card, in: RoundedRectangle(cornerRadius: 16))
+        .cardSurface(16)
     }
 }

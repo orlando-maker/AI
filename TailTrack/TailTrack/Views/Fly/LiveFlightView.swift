@@ -51,6 +51,16 @@ struct LiveFlightView: View {
             .readableContentWidth()
         }
         .background(Theme.paper)
+        // Haptics only for the moments a pilot would want to feel without
+        // looking: wheels up, safely down, and lost signal.
+        .sensoryFeedback(trigger: tracker.phase) { _, phase in
+            switch phase {
+            case .enroute: return .impact(weight: .medium)
+            case .arrived: return .success
+            case .signalLost: return .warning
+            default: return nil
+            }
+        }
         .sheet(isPresented: $showingPaywall) { PaywallView() }
         .sheet(item: $textPayload) { payload in
             MessageComposeView(recipients: payload.recipients, body: payload.body)
@@ -118,6 +128,7 @@ struct LiveFlightView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(tracker.flight?.tailNumber ?? "")
                         .font(.system(.title2, design: .rounded).weight(.heavy))
+                        .tracking(-0.4)
                         .foregroundStyle(.white)
                     Text(tracker.flight?.typeCode ?? "")
                         .font(.subheadline.weight(.medium))
@@ -240,7 +251,7 @@ struct LiveFlightView: View {
                     Image(systemName: "arrow.up.left.and.arrow.down.right")
                         .font(.body.weight(.semibold))
                         .padding(9)
-                        .background(.thinMaterial, in: Circle())
+                        .floatingGlass(Circle())
                 }
                 Button {
                     if pro.isPro {
@@ -251,19 +262,24 @@ struct LiveFlightView: View {
                 } label: {
                     Image(systemName: hybridMap ? "map.fill" : "globe.americas.fill")
                         .font(.body.weight(.semibold))
+                        .contentTransition(.symbolEffect(.replace))
                         .padding(9)
-                        .background(.thinMaterial, in: Circle())
+                        .floatingGlass(Circle())
                 }
                 Button {
                     showTraffic.toggle()
                 } label: {
                     Image(systemName: showTraffic ? "airplane.circle.fill" : "airplane.circle")
                         .font(.body.weight(.semibold))
+                        .contentTransition(.symbolEffect(.replace))
                         .padding(9)
-                        .background(.thinMaterial, in: Circle())
+                        .floatingGlass(Circle())
                         .foregroundStyle(showTraffic ? Theme.brandOrange : Color.primary)
                 }
             }
+            .buttonStyle(.pressableControl)
+            .sensoryFeedback(.selection, trigger: showTraffic)
+            .sensoryFeedback(.selection, trigger: hybridMap)
             .padding(10)
         }
         .shadow(color: .black.opacity(0.15), radius: 8, y: 4)
@@ -305,8 +321,9 @@ struct LiveFlightView: View {
                         .padding(.horizontal, 12)
                         .padding(.vertical, 8)
                         .frame(minWidth: 158, alignment: .leading)
-                        .background(Theme.card, in: RoundedRectangle(cornerRadius: 12))
+                        .cardSurface(12)
                     }
+                    .buttonStyle(.pressable)
                     .foregroundStyle(.primary)
                 }
             }
@@ -459,8 +476,9 @@ struct LiveFlightView: View {
                     .foregroundStyle(.tertiary)
             }
             .padding(14)
-            .background(Theme.card, in: RoundedRectangle(cornerRadius: 14))
+            .cardSurface(14)
         }
+        .buttonStyle(.pressable)
         .foregroundStyle(.primary)
     }
 }

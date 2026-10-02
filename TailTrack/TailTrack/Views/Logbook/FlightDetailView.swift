@@ -63,6 +63,8 @@ struct FlightDetailView: View {
         .onChange(of: flight.track.count) { _, _ in
             if pro.isPro { prepareExports() }
         }
+        .sensoryFeedback(.success, trigger: flight.track.count) { old, new in old < 2 && new >= 2 }
+        .sensoryFeedback(.success, trigger: confirmedLandings) { _, new in new != nil }
         .onChange(of: flight.notes) { _, newNotes in
             notes = newNotes
         }
@@ -129,7 +131,7 @@ struct FlightDetailView: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.card, in: RoundedRectangle(cornerRadius: 16))
+        .cardSurface(16)
     }
 
     private var storyCard: some View {
@@ -149,7 +151,7 @@ struct FlightDetailView: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.card, in: RoundedRectangle(cornerRadius: 16))
+        .cardSurface(16)
     }
 
     private var landingsSuggestionCard: some View {
@@ -174,7 +176,7 @@ struct FlightDetailView: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.card, in: RoundedRectangle(cornerRadius: 16))
+        .cardSurface(16)
     }
 
     private var weatherCard: some View {
@@ -194,7 +196,7 @@ struct FlightDetailView: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.card, in: RoundedRectangle(cornerRadius: 16))
+        .cardSurface(16)
     }
 
     private var statsGrid: some View {
@@ -236,7 +238,7 @@ struct FlightDetailView: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.card, in: RoundedRectangle(cornerRadius: 16))
+        .cardSurface(16)
     }
 
     private var exportCard: some View {
@@ -284,7 +286,7 @@ struct FlightDetailView: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.card, in: RoundedRectangle(cornerRadius: 16))
+        .cardSurface(16)
     }
 
     private func prepareExports() {

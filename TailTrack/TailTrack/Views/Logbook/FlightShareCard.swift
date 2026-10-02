@@ -18,6 +18,7 @@ struct FlightShareCard: View {
 
             Text(flight.routeTitle)
                 .font(.system(size: 40, weight: .heavy, design: .rounded))
+                .tracking(-1.0)
                 .foregroundStyle(.white)
                 .lineLimit(1)
                 .minimumScaleFactor(0.5)
