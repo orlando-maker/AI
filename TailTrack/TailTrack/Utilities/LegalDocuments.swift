@@ -113,7 +113,12 @@ enum LegalDocuments {
     address and the query:
     • adsb.lol / adsb.fi / OpenSky Network — receive the Mode S hex code \
     or registration being tracked, to return live positions.
-    • OurAirports (davidmegginson.github.io) — airport database download.
+    • OurAirports (davidmegginson.github.io, or its GitHub mirror) — \
+    airport database and radio frequency downloads.
+    • Aviation Weather Center (aviationweather.gov) — receives the airport \
+    codes you look up, to return METAR and TAF weather.
+    • datis.clowd.io — receives an airport code, to return that airport's \
+    digital ATIS.
     • Openverse (api.openverse.org) — only when you use "Find Open Photo," \
     receives your search term (e.g. "Cessna 152 aircraft").
     We do not send these services your name, profile, or logbook. Each \
@@ -158,8 +163,13 @@ enum LegalDocuments {
     • adsb.fi — community-run ADS-B network with an open API.
     • OpenSky Network — research ADS-B network (opensky-network.org); used \
     as a fallback under its free non-commercial access terms.
-    • OurAirports — worldwide airport database, dedicated to the public \
-    domain by its contributors (ourairports.com).
+    • OurAirports — worldwide airport database and radio frequencies, \
+    dedicated to the public domain by its contributors (ourairports.com).
+    • Aviation Weather Center — METAR and TAF weather from the FAA and \
+    National Weather Service (aviationweather.gov).
+    • D-ATIS — the FAA's digital ATIS, served free by the community \
+    mirror at datis.clowd.io. The decoded view is TailTrack's own reading \
+    of the broadcast; the original text is always shown alongside it.
     • Openverse — CC0/public-domain image search by the WordPress \
     community (openverse.org). Photos surfaced in "Find Open Photo" are \
     filtered to licenses that require no attribution; the photographers \

@@ -24,6 +24,8 @@ struct LiveFlightView: View {
     @State private var showingFullMap = false
     @State private var weather: [AirportWeather] = []
     @State private var selectedMetar: AirportWeather?
+    /// D-ATIS broadcasts by airport ident, for the airports on the route.
+    @State private var atis: [String: [ATISReport]] = [:]
     @AppStorage(FlightTracker.nearbyTrafficKey) private var showTraffic = true
 
     var body: some View {
@@ -73,35 +75,22 @@ struct LiveFlightView: View {
         .task(id: routeWeatherIdents.joined(separator: "-")) {
             let idents = routeWeatherIdents
             guard !idents.isEmpty else { return }
-            weather = await WeatherService().metars(for: idents)
+            // ATIS and METARs are reissued about hourly and flights outlast
+            // that, so keep them fresh while this screen is up.
+            while !Task.isCancelled {
+                async let metars = WeatherService().metars(for: idents)
+                async let broadcasts = ATISService().reports(for: idents)
+                weather = await metars
+                atis = await broadcasts
+                try? await Task.sleep(for: .seconds(15 * 60))
+            }
         }
         .fullScreenCover(isPresented: $showingFullMap) {
             FullScreenFlightMapView(hybridMap: $hybridMap)
         }
         .sheet(item: $selectedMetar) { metar in
-            ScrollView {
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("\(metar.ident) METAR")
-                        .font(.headline)
-                    Text(metar.raw)
-                        .font(.callout.monospaced())
-                        .textSelection(.enabled)
-                    if let taf = metar.taf {
-                        Text("\(metar.ident) TAF")
-                            .font(.headline)
-                            .padding(.top, 6)
-                        Text(taf)
-                            .font(.callout.monospaced())
-                            .textSelection(.enabled)
-                    }
-                    Text("Advisory only — get an official briefing before flight.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                .padding(24)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .presentationDetents([.medium, .large])
+            AirportWeatherSheet(ident: metar.ident, initialMetar: metar,
+                                initialATIS: atis[metar.ident])
         }
         .sheet(isPresented: $showingLandingSheet) {
             NavigationStack {
@@ -308,6 +297,11 @@ struct LiveFlightView: View {
                                         Text(category)
                                             .font(.caption2.weight(.heavy))
                                             .foregroundStyle(categoryColor(metar.flightCategory))
+                                    }
+                                    if let letter = atis[metar.ident]?.first?.letter {
+                                        Text("INFO \(letter)")
+                                            .font(.caption2.weight(.heavy).monospaced())
+                                            .foregroundStyle(Theme.brandOrange)
                                     }
                                 }
                                 Text([metar.windSummary, metar.visibility,

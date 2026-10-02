@@ -26,6 +26,7 @@ struct FlightSetupView: View {
     @State private var addingAircraft = false
     @State private var addingClubPlanes = false
     @State private var showingPaywall = false
+    @State private var briefingAirport: Airport?
 
     private var selectedAircraft: Aircraft? {
         fleet.aircraft.first { $0.id == selectedAircraftID } ?? fleet.aircraft.first
@@ -49,6 +50,9 @@ struct FlightSetupView: View {
                 crewSection
             }
             routeSection
+            if !routeAirports.isEmpty {
+                briefingSection
+            }
             if let plan = planSummary {
                 planSection(plan)
             }
@@ -58,6 +62,9 @@ struct FlightSetupView: View {
         .background(Theme.paper)
         .sheet(isPresented: $pickingDeparture) {
             AirportPickerView(title: "Departure") { departure = $0 }
+        }
+        .sheet(item: $briefingAirport) { airport in
+            AirportWeatherSheet(ident: airport.ident)
         }
         .sheet(isPresented: $pickingDestination) {
             AirportPickerView(title: "Destination") { destination = $0 }
@@ -261,6 +268,42 @@ struct FlightSetupView: View {
             Text("Route")
         } footer: {
             Text("Optional — leave blank to just follow the aircraft. Add stops for multi-leg days (KSQL → KPAO → KSLC); the planned line, distance, and time follow the whole path. TailTrack fills in the departure and arrival airports automatically from where you take off and land.")
+        }
+    }
+
+    /// Every airport on the planned route, in order, each once.
+    private var routeAirports: [Airport] {
+        let stops: [Airport?] = [departure] + (mode == .personal ? viaAirports.map(Optional.some) : []) + [destination]
+        var seen = Set<String>()
+        return stops.compactMap { $0 }.filter { seen.insert($0.ident).inserted }
+    }
+
+    /// The pre-departure listen: ATIS (decoded where the field publishes a
+    /// digital one), its frequency, and the weather, per airport.
+    private var briefingSection: some View {
+        Section("ATIS & Weather") {
+            ForEach(routeAirports) { airport in
+                Button {
+                    briefingAirport = airport
+                } label: {
+                    HStack(spacing: 12) {
+                        Image(systemName: "headphones")
+                            .foregroundStyle(Theme.brandOrange)
+                            .frame(width: 22)
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(airport.ident).bold()
+                            Text("ATIS, weather & frequencies")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.tertiary)
+                    }
+                }
+                .foregroundStyle(.primary)
+            }
         }
     }
 
