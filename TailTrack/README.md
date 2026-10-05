@@ -19,8 +19,8 @@ pattern session at your home field.
   their ICAO Mode S hex **offline** (the FAA's sequential allocation
   algorithm, unit-tested against the documented block anchors), so there's
   no registry lookup needed. Non-US? Enter the hex manually.
-- **Open-data feeds** with automatic failover: [adsb.lol](https://adsb.lol) →
-  [adsb.fi](https://adsb.fi) → [OpenSky Network](https://opensky-network.org).
+- **Open data** from [adsb.lol](https://adsb.lol) (ODbL). See *Open data
+  sources & fair use* for why it's the only live source for now.
 - **Automatic takeoff & landing detection**, wheels-up/landing times, flown
   distance, max/avg/cruise groundspeed, max altitude.
 - **Route planning**: great-circle distance, initial true course, ETE at
@@ -210,9 +210,9 @@ Save one to your camera roll and upload it in the aircraft editor.
 
 | Source | What | License/terms |
 |---|---|---|
-| [adsb.lol](https://api.adsb.lol) | Live ADS-B positions | Open API, community-run |
-| [adsb.fi](https://adsb.fi) | Live ADS-B positions (failover) | Open API, community-run |
-| [OpenSky Network](https://opensky-network.org) | Live positions (last resort) | Free for non-commercial; rate-limited anonymous access |
+| [adsb.lol](https://api.adsb.lol) | Live positions, traces, history | Data under the Open Database License (attribution); API may require a feeder key later |
+| [adsb.fi](https://adsb.fi) | **Off by default** | Open-data API is personal, non-commercial use only |
+| [OpenSky Network](https://opensky-network.org) | **Not used** | Live use in a commercial product needs a written agreement and license |
 | [OurAirports](https://ourairports.com) | Worldwide airport database | Public domain |
 
 Polling is one aircraft every 8–15 seconds — friendly to all of these. If
@@ -223,6 +223,11 @@ improves, and you typically get feeder perks.
 `Scripts/build_airport_db.py` (optional) pre-bundles the *full* OurAirports
 database into the app so worldwide airports work offline on first launch.
 
+**Before App Store release:** TailTrack is a paid app, so it uses
+adsb.lol alone. Email adsb.lol so they know a production app depends on
+their API, and ask adsb.fi for permission. If they agree in writing, flip
+`ADSBClient.adsbFiPermitted` to add it back as a second live source.
+
 ## Limitations (honest ones)
 
 - **Not for navigation.** Logging/companion use only — never a substitute
@@ -231,10 +236,11 @@ database into the app so worldwide airports work offline on first launch.
   community receiver range; the track resumes when coverage returns, and a
   long signal loss at low altitude near the destination is treated as a
   probable landing.
-- **Backgrounding.** iOS suspends the app in the background; tracking
-  continues whenever the app is foregrounded (the data source is
-  server-side, so wheels-up time is still captured retroactively from the
-  first airborne sample seen).
+- **Backgrounding.** iOS suspends the app in the background, and may end
+  it. The flight in progress is saved continuously; on the next launch
+  TailTrack picks the same flight back up, replays the ADS-B history it
+  missed through the same takeoff/landing detector (so a landing that
+  happened meanwhile is logged at its real time), and keeps tracking.
 - **Mode S hex derivation** covers US N-numbers exactly; a manual override
   field handles warbirds, non-US regs, and anything odd.
 
@@ -250,14 +256,15 @@ TailTrack/
 │   ├── Models/               # Aircraft, Airport, Flight, PilotProfile
 │   ├── Services/
 │   │   ├── NNumber.swift     # N-number ⇄ ICAO hex (offline, unit-tested)
-│   │   ├── ADSBClient.swift  # adsb.lol → adsb.fi → OpenSky failover
-│   │   ├── FlightTracker.swift # poll loop + takeoff/landing state machine
+│   │   ├── ADSBClient.swift  # adsb.lol live/trace/history (adsb.fi behind a permission flag)
+│   │   ├── FlightPhaseDetector.swift # pure takeoff/landing/touch-and-go state machine
+│   │   ├── FlightTracker.swift # poll loop, crash recovery, logbook hand-off
 │   │   ├── AirportStore.swift  # starter JSON + OurAirports download/cache
 │   │   ├── FleetStore / LogbookStore / ProfileStore / ProStore (StoreKit 2)
 │   ├── Utilities/            # GreatCircle, Format, Theme, ImageStore, FlightExport
 │   ├── Views/                # Fly / Logbook / Fleet / Profile / Settings
 │   └── Resources/airports-starter.json
-└── TailTrackTests/           # NNumber, GreatCircle, CSV parser tests
+└── TailTrackTests/           # flight-phase scenarios, N-numbers, segmenter, ATIS, regions
 ```
 
 SwiftUI + Observation (`@Observable`), MapKit for SwiftUI, StoreKit 2,
@@ -265,7 +272,34 @@ iOS 17+. No third-party dependencies.
 
 ## Tests
 
-Run with ⌘U (the `TailTrack` scheme includes `TailTrackTests`). The
-N-number suite pins 13 known tail-number/hex pairs, both documented FAA
+Run with ⌘U (the `TailTrack` scheme includes `TailTrackTests`).
+
+`FlightPhaseDetectorTests` replays simulated ADS-B sequences through the
+takeoff/landing engine. It's the part that can quietly ruin a real
+flight record, so every threshold change should keep these green:
+
+- a normal departure and landing
+- pattern work where the transponder never sets its ground flag (3
+  touch-and-goes and a full stop are one flight with 4 landings)
+- slow flight into a headwind, both in the practice area and over an
+  airport
+- slow and low with no airport nearby
+- a 5-minute reception gap, and a long signal loss
+- an aggregator serving the same stale position forever
+- joining mid-flight
+- a single bogus ground flag in cruise
+- a stop-and-go
+- losing coverage on final
+- a parked transponder, and a fast taxi
+- duplicate reports
+
+Landing rules, in short: stale reports (over 60 s old, or repeated) never
+change state. "On the ground" needs the ground flag, or slow plus within
+2.5 nm of an airport plus close to that airport's elevation. A landing
+needs 20 s of ground evidence across two reports. Taking off within 10
+minutes of a landing continues the same flight as a touch-and-go or
+stop-and-go.
+
+The N-number suite pins 13 known tail-number/hex pairs, both documented FAA
 block anchors, invalid-input rejection, and a ~900-sample round-trip sweep
 across the whole US allocation.

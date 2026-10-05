@@ -31,6 +31,10 @@ targets:
           UIColorName: ""
         ITSAppUsesNonExemptEncryption: false
         NSSupportsLiveActivities: true
+        # The logbook (and its automatic backup) show up in the Files app,
+        # so pilots always have their own copy.
+        UIFileSharingEnabled: true
+        LSSupportsOpeningDocumentsInPlace: true
         # Live airband audio from the pilot's own receiver keeps playing
         # with the screen locked. Home-built receivers (Icecast) usually
         # serve plain http, which is allowed for media only.

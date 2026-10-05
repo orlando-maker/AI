@@ -63,6 +63,11 @@ struct LogbookView: View {
                     }
                 }
             }
+            .safeAreaInset(edge: .top) {
+                if let issue = logbook.storageIssue {
+                    storageIssueBanner(issue)
+                }
+            }
             .navigationTitle("Logbook")
             .scrollContentBackground(.hidden)
             .background(Theme.paper)
@@ -196,6 +201,30 @@ struct LogbookView: View {
     private var statsLabel: some View {
         Label("Pilot Stats — hours, records, top airports", systemImage: "chart.bar.fill")
             .font(.subheadline)
+    }
+
+    /// Recovery and save problems stay in front of the pilot until read:
+    /// a logbook must never look silently empty.
+    private func storageIssueBanner(_ issue: String) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundStyle(.orange)
+            Text(issue)
+                .font(.footnote)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Button {
+                logbook.dismissStorageIssue()
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.secondary)
+            }
+            .accessibilityLabel("Dismiss")
+        }
+        .padding(12)
+        .cardSurface(12)
+        .padding(.horizontal)
+        .padding(.bottom, 6)
     }
 
     private var totalsCard: some View {

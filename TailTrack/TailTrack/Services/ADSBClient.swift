@@ -49,9 +49,14 @@ enum ADSBError: LocalizedError {
     }
 }
 
-/// Fetches live state from free, open ADS-B aggregators. Tries adsb.lol
-/// first, then adsb.fi (both community readsb networks with open APIs),
-/// then the OpenSky Network as a last resort.
+/// Fetches live state from community ADS-B networks.
+///
+/// Licensing decides the source list. adsb.lol publishes its data under the
+/// Open Database License, which allows a paid app with attribution.
+/// adsb.fi's open-data API is for personal, non-commercial use, and the
+/// OpenSky Network requires a license for live commercial products, so a
+/// paid TailTrack uses adsb.lol alone until another network agrees in
+/// writing. Flip `adsbFiPermitted` once adsb.fi grants permission.
 struct ADSBClient {
 
     private let session: URLSession
@@ -110,17 +115,6 @@ struct ADSBClient {
         }
         if let raced { return raced }
 
-        if let hex, !hex.isEmpty {
-            do {
-                if let snap = try await fetchOpenSky(hex: hex) {
-                    return snap
-                }
-                sawEmptyResult = true
-            } catch {
-                failures.append("OpenSky: \(error.localizedDescription)")
-            }
-        }
-
         if sawEmptyResult { return nil }
         throw ADSBError.allSourcesFailed(failures.joined(separator: "; "))
     }
@@ -145,10 +139,21 @@ struct ADSBClient {
         }
     }
 
-    private static let v2Sources = [
-        V2Source(name: "adsb.lol", base: "https://api.adsb.lol/v2"),
-        V2Source(name: "adsb.fi", base: "https://opendata.adsb.fi/api/v2"),
-    ]
+    /// Set to true only with adsb.fi's written permission for TailTrack.
+    static let adsbFiPermitted = false
+
+    private static var v2Sources: [V2Source] {
+        var sources = [V2Source(name: "adsb.lol", base: "https://api.adsb.lol/v2")]
+        if adsbFiPermitted {
+            sources.append(V2Source(name: "adsb.fi", base: "https://opendata.adsb.fi/api/v2"))
+        }
+        return sources
+    }
+
+    /// The tar1090 "globe" hosts that serve trace and history files.
+    private static var globeHosts: [String] {
+        adsbFiPermitted ? ["https://globe.adsb.lol", "https://globe.adsb.fi"] : ["https://globe.adsb.lol"]
+    }
 
     private struct V2Response: Decodable {
         let ac: [V2Aircraft]?
@@ -248,10 +253,8 @@ struct ADSBClient {
     func nearbyAircraft(latitude: Double, longitude: Double, radiusNM: Double,
                         excludingHex: String?) async -> [NearbyAircraft] {
         let radius = Int(min(250, max(1, radiusNM)))
-        let urls = [
-            "https://api.adsb.lol/v2/lat/\(latitude)/lon/\(longitude)/dist/\(radius)",
-            "https://opendata.adsb.fi/api/v2/lat/\(latitude)/lon/\(longitude)/dist/\(radius)",
-        ].compactMap { URL(string: $0) }
+        let urls = Self.v2Sources
+            .compactMap { URL(string: "\($0.base)/lat/\(latitude)/lon/\(longitude)/dist/\(radius)") }
 
         return await withTaskGroup(of: [NearbyAircraft].self) { group in
             for url in urls {
@@ -315,13 +318,13 @@ struct ADSBClient {
 
     /// Fetches the flight's trail so far, so joining a flight mid-air shows
     /// the whole breadcrumb path and the true wheels-up time — not just the
-    /// points seen since tracking started. Tries the tar1090 trace files
-    /// that adsb.lol and adsb.fi publish, then OpenSky's track endpoint.
+    /// points seen since tracking started, from the tar1090 trace files the
+    /// networks publish.
     func historicalTrack(hex: String) async -> [TrackPoint] {
         let h = hex.lowercased()
         let subdir = String(h.suffix(2))
         var urls: [URL] = []
-        for host in ["https://globe.adsb.lol", "https://globe.adsb.fi"] {
+        for host in Self.globeHosts {
             for kind in ["full", "recent"] {
                 if let url = URL(string: "\(host)/data/traces/\(subdir)/trace_\(kind)_\(h).json") {
                     urls.append(url)
@@ -332,9 +335,6 @@ struct ADSBClient {
             if let points = try? await fetchTar1090Trace(url: url), points.count > 1 {
                 return points
             }
-        }
-        if let points = try? await fetchOpenSkyTrack(hex: h), points.count > 1 {
-            return points
         }
         return []
     }
@@ -395,7 +395,7 @@ struct ADSBClient {
         guard let y = c.year, let m = c.month, let d = c.day else { return [] }
         let date = String(format: "%04d/%02d/%02d", y, m, d)
         let path = "globe_history/\(date)/traces/\(hex.suffix(2))/trace_full_\(hex).json"
-        for host in ["https://globe.adsb.lol", "https://globe.adsb.fi"] {
+        for host in Self.globeHosts {
             if let url = URL(string: "\(host)/\(path)"),
                let points = try? await fetchTar1090Trace(url: url), !points.isEmpty {
                 return points
@@ -471,88 +471,5 @@ struct ADSBClient {
             ))
         }
         return points
-    }
-
-    /// OpenSky /tracks: {"path": [[time, lat, lon, baroAltMeters, track,
-    /// onGround], …]} — sparser waypoints, still a real trail.
-    private func fetchOpenSkyTrack(hex: String) async throws -> [TrackPoint] {
-        guard let url = URL(string: "https://opensky-network.org/api/tracks/all?icao24=\(hex)&time=0") else {
-            throw URLError(.badURL)
-        }
-        let (data, response) = try await session.data(from: url)
-        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode),
-              let root = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let path = root["path"] as? [[Any]] else {
-            throw URLError(.cannotParseResponse)
-        }
-        var points: [TrackPoint] = []
-        for row in path where row.count >= 6 {
-            guard let time = (row[0] as? NSNumber)?.doubleValue,
-                  let lat = (row[1] as? NSNumber)?.doubleValue,
-                  let lon = (row[2] as? NSNumber)?.doubleValue else { continue }
-            let onGround = (row[5] as? NSNumber)?.boolValue ?? false
-            points.append(TrackPoint(
-                time: Date(timeIntervalSince1970: time),
-                latitude: lat,
-                longitude: lon,
-                altitudeFt: onGround ? nil : (row[3] as? NSNumber).map { $0.doubleValue * 3.28084 },
-                groundSpeedKt: nil,
-                trackDeg: (row[4] as? NSNumber)?.doubleValue,
-                verticalRateFpm: nil,
-                onGround: onGround
-            ))
-        }
-        return points
-    }
-
-    // MARK: - OpenSky fallback
-
-    /// Anonymous OpenSky state vector. The response is a heterogeneous JSON
-    /// array, so it's decoded with JSONSerialization. Units are metric.
-    private func fetchOpenSky(hex: String) async throws -> ADSBSnapshot? {
-        guard let url = URL(string: "https://opensky-network.org/api/states/all?icao24=\(hex.lowercased())") else {
-            throw URLError(.badURL)
-        }
-        let (data, response) = try await session.data(from: url)
-        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
-            throw URLError(.badServerResponse)
-        }
-        guard let root = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let states = root["states"] as? [[Any]],
-              let s = states.first, s.count >= 12 else {
-            return nil
-        }
-
-        func number(_ index: Int) -> Double? {
-            guard index < s.count else { return nil }
-            return (s[index] as? NSNumber)?.doubleValue
-        }
-
-        guard let lon = number(5), let lat = number(6) else { return nil }
-        let onGround = (s[8] as? NSNumber)?.boolValue ?? false
-        let metersToFeet = 3.28084
-        let msToKt = 1.94384
-
-        let lastPosition = number(3)
-        let age = lastPosition.map { max(0, Date().timeIntervalSince1970 - $0) } ?? 0
-
-        return ADSBSnapshot(
-            hex: hex.lowercased(),
-            registration: nil,
-            callsign: (s[1] as? String)?.trimmingCharacters(in: .whitespaces),
-            latitude: lat,
-            longitude: lon,
-            baroAltitudeFt: onGround ? nil : number(7).map { $0 * metersToFeet },
-            geoAltitudeFt: number(13).map { $0 * metersToFeet },
-            groundSpeedKt: number(9).map { $0 * msToKt },
-            trackDeg: number(10),
-            verticalRateFpm: number(11).map { $0 * metersToFeet * 60 },
-            onGround: onGround,
-            squawk: s.count > 14 ? s[14] as? String : nil,
-            typeCode: nil,
-            positionAgeSeconds: age,
-            fetchedAt: Date(),
-            source: "OpenSky"
-        )
     }
 }

@@ -74,7 +74,10 @@ struct Flight: Codable, Identifiable {
 
     private var airbornePoints: [TrackPoint] { track.filter { !$0.onGround } }
 
-    /// Distance actually flown, summed over consecutive airborne samples.
+    /// Distance over the ground as ADS-B observed it: straight lines between
+    /// consecutive airborne reports. Across a reception gap that line is
+    /// shorter than the path really flown, so this is a floor, not a
+    /// measurement.
     var distanceFlownNM: Double {
         let pts = airbornePoints
         guard pts.count > 1 else { return 0 }
@@ -94,18 +97,35 @@ struct Flight: Codable, Identifiable {
     }
 
     var averageGroundSpeedKt: Double? {
-        let speeds = airbornePoints.compactMap(\.groundSpeedKt)
-        guard !speeds.isEmpty else { return nil }
-        return speeds.reduce(0, +) / Double(speeds.count)
+        Self.timeWeightedSpeed(airbornePoints)
     }
 
     /// Average groundspeed while in the cruise band (within 85% of max altitude).
     var cruiseGroundSpeedKt: Double? {
         guard let maxAlt = maxAltitudeFt, maxAlt > 0 else { return nil }
         let cruisePts = airbornePoints.filter { ($0.altitudeFt ?? 0) >= maxAlt * 0.85 }
-        let speeds = cruisePts.compactMap(\.groundSpeedKt)
-        guard !speeds.isEmpty else { return nil }
-        return speeds.reduce(0, +) / Double(speeds.count)
+        return Self.timeWeightedSpeed(cruisePts)
+    }
+
+    /// Each report's speed counts for the time until the next report, so
+    /// bursts of fast polling don't outweigh quiet stretches. Gaps longer
+    /// than two minutes are left out rather than letting one report stand
+    /// in for minutes nobody heard.
+    static func timeWeightedSpeed(_ points: [TrackPoint]) -> Double? {
+        var weighted = 0.0
+        var seconds = 0.0
+        if points.count > 1 {
+            for i in 0..<(points.count - 1) {
+                guard let speed = points[i].groundSpeedKt else { continue }
+                let interval = points[i + 1].time.timeIntervalSince(points[i].time)
+                guard interval > 0, interval <= 120 else { continue }
+                weighted += speed * interval
+                seconds += interval
+            }
+        }
+        if seconds > 0 { return weighted / seconds }
+        let speeds = points.compactMap(\.groundSpeedKt)
+        return speeds.isEmpty ? nil : speeds.reduce(0, +) / Double(speeds.count)
     }
 
     var routeTitle: String {

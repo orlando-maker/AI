@@ -34,8 +34,8 @@ enum LegalDocuments {
 
     2. DATA ACCURACY
     Positions, times, speeds, altitudes, and airport data come from \
-    third-party community networks and open datasets (adsb.lol, adsb.fi, \
-    OpenSky Network, OurAirports). Coverage is incomplete and data may be \
+    third-party community networks and open datasets (adsb.lol, \
+    OurAirports). Coverage is incomplete and data may be \
     delayed, inaccurate, or unavailable. We make no guarantee of accuracy, \
     completeness, or availability.
 
@@ -111,7 +111,7 @@ enum LegalDocuments {
     To function, the app contacts third-party services directly from your \
     device. Like any internet request, those services receive your IP \
     address and the query:
-    • adsb.lol / adsb.fi / OpenSky Network — receive the Mode S hex code \
+    • adsb.lol — receives the Mode S hex code \
     or registration being tracked, to return live positions.
     • OurAirports (davidmegginson.github.io, or its GitHub mirror) — \
     airport database and radio frequency downloads.
@@ -162,10 +162,9 @@ enum LegalDocuments {
 
     TailTrack is built on generous open-data communities:
 
-    • adsb.lol — community-run ADS-B network with an open API.
-    • adsb.fi — community-run ADS-B network with an open API.
-    • OpenSky Network — research ADS-B network (opensky-network.org); used \
-    as a fallback under its free non-commercial access terms.
+    • adsb.lol — community-run ADS-B network. Live positions and flight \
+    history are © adsb.lol contributors, available under the Open \
+    Database License (opendatacommons.org/licenses/odbl).
     • OurAirports — worldwide airport database and radio frequencies, \
     dedicated to the public domain by its contributors (ourairports.com).
     • Aviation Weather Center — METAR and TAF weather from the FAA and \

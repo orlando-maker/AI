@@ -23,6 +23,13 @@ final class FlightLiveActivity {
         )
     }
 
+    /// After a relaunch, adopts the Live Activity the previous run started
+    /// instead of stacking a second one on the Lock Screen.
+    func reattach() {
+        guard activity == nil else { return }
+        activity = Activity<FlightActivityAttributes>.activities.first
+    }
+
     func update(_ state: FlightActivityAttributes.ContentState) {
         guard let activity else { return }
         Task {

@@ -3,16 +3,40 @@ import Observation
 
 /// Completed flights, newest first, persisted as JSON in Documents so the
 /// logbook is included in device backups.
+///
+/// A pilot's logbook must never quietly disappear. The last good file is
+/// kept as a backup before every save; a file that can't be read is set
+/// aside untouched (never overwritten) and the backup restored; and any
+/// problem is shown to the pilot instead of an empty logbook.
 @Observable
 @MainActor
 final class LogbookStore {
 
     private(set) var flights: [Flight] = []
+    /// A recovery or save problem to show in the logbook, in plain words.
+    private(set) var storageIssue: String?
 
-    private static var fileURL: URL {
-        let dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        return dir.appendingPathComponent("logbook.json")
+    private static let schemaVersion = 1
+
+    /// The on-disk format. Files written before the version existed are a
+    /// bare array of flights and still load.
+    private struct LogbookFile: Codable {
+        var schemaVersion: Int
+        var flights: [Flight]
     }
+
+    private static var directory: URL {
+        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+    }
+    private static var fileURL: URL { directory.appendingPathComponent("logbook.json") }
+    private static var backupURL: URL { directory.appendingPathComponent("logbook.backup.json") }
+
+    /// True once this session has read or written logbook.json
+    /// successfully, so it's safe to keep as the backup.
+    private var fileIsKnownGood = false
+    /// Set if an unreadable file couldn't be set aside: saving would
+    /// overwrite the only copy, so it waits until the pilot gets help.
+    private var savesBlocked = false
 
     init() {
         load()
@@ -92,14 +116,76 @@ final class LogbookStore {
         save()
     }
 
+    func dismissStorageIssue() {
+        storageIssue = nil
+    }
+
     private func load() {
-        guard let data = try? Data(contentsOf: Self.fileURL),
-              let decoded = try? JSONDecoder().decode([Flight].self, from: data) else { return }
-        flights = decoded
+        let fileManager = FileManager.default
+        guard fileManager.fileExists(atPath: Self.fileURL.path) else {
+            // First launch, or the main file is gone but a backup survived.
+            if let restored = Self.read(Self.backupURL) {
+                flights = restored
+                storageIssue = "Your logbook file was missing, so TailTrack restored its backup copy."
+            }
+            return
+        }
+        if let decoded = Self.read(Self.fileURL) {
+            flights = decoded
+            fileIsKnownGood = true
+            return
+        }
+
+        // Unreadable. Set it aside untouched for recovery, so no later save
+        // can overwrite it, then fall back to the backup.
+        let keptAs = Self.setAsideDamagedFile()
+        savesBlocked = keptAs == nil
+        let kept = keptAs.map { " The damaged file is kept as \($0) in TailTrack's folder in the Files app." } ?? ""
+        if let restored = Self.read(Self.backupURL) {
+            flights = restored
+            storageIssue = "Your logbook file was damaged, so TailTrack restored the last good copy." + kept
+        } else {
+            storageIssue = "Your logbook file couldn't be read, and there's no backup yet. Nothing was deleted." + kept
+                + " Contact \(LegalDocuments.supportEmail) for help recovering it."
+        }
+    }
+
+    private static func read(_ url: URL) -> [Flight]? {
+        guard let data = try? Data(contentsOf: url) else { return nil }
+        let decoder = JSONDecoder()
+        if let file = try? decoder.decode(LogbookFile.self, from: data) { return file.flights }
+        return try? decoder.decode([Flight].self, from: data)
+    }
+
+    private static func setAsideDamagedFile() -> String? {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyyMMdd-HHmmss"
+        let name = "logbook-damaged-\(formatter.string(from: Date())).json"
+        let destination = directory.appendingPathComponent(name)
+        if (try? FileManager.default.moveItem(at: fileURL, to: destination)) != nil { return name }
+        // A copy keeps it just as safe when moving isn't possible.
+        if (try? FileManager.default.copyItem(at: fileURL, to: destination)) != nil { return name }
+        return nil
     }
 
     private func save() {
-        guard let data = try? JSONEncoder().encode(flights) else { return }
-        try? data.write(to: Self.fileURL, options: .atomic)
+        guard !savesBlocked else {
+            storageIssue = "TailTrack isn't saving changes until your damaged logbook file is recovered, so it can't be overwritten. Contact \(LegalDocuments.supportEmail) for help."
+            return
+        }
+        let fileManager = FileManager.default
+        do {
+            let data = try JSONEncoder().encode(LogbookFile(schemaVersion: Self.schemaVersion,
+                                                            flights: flights))
+            // The previous good version becomes the backup before it's replaced.
+            if fileIsKnownGood, fileManager.fileExists(atPath: Self.fileURL.path) {
+                try? fileManager.removeItem(at: Self.backupURL)
+                try? fileManager.copyItem(at: Self.fileURL, to: Self.backupURL)
+            }
+            try data.write(to: Self.fileURL, options: .atomic)
+            fileIsKnownGood = true
+        } catch {
+            storageIssue = "Couldn't save your logbook (\(error.localizedDescription)). Your flights are still here, and TailTrack will try again with the next change."
+        }
     }
 }

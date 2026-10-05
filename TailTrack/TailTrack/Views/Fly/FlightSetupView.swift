@@ -406,7 +406,7 @@ struct FlightSetupView: View {
             .listRowInsets(EdgeInsets())
             .disabled(!canStart)
         } footer: {
-            Text("Uses free community ADS-B networks (adsb.lol, adsb.fi, OpenSky). Coverage over remote terrain can be spotty — gaps fill in as the aircraft returns to coverage.")
+            Text("Uses the free community ADS-B network adsb.lol. Coverage over remote terrain can be spotty — gaps fill in as the aircraft returns to coverage.")
         }
     }
 }

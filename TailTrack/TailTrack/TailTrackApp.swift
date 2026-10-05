@@ -23,6 +23,7 @@ struct TailTrackApp: App {
                 .task {
                     tracker.logbook = logbook
                     tracker.airports = airports
+                    tracker.resumeInterruptedFlightIfAny()
                 }
         }
     }

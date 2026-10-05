@@ -118,16 +118,16 @@ struct SettingsView: View {
         Section {
             Link("adsb.lol — community ADS-B network",
                  destination: URL(string: "https://adsb.lol")!)
-            Link("adsb.fi — community ADS-B network",
-                 destination: URL(string: "https://adsb.fi")!)
-            Link("OpenSky Network",
-                 destination: URL(string: "https://opensky-network.org")!)
+            if ADSBClient.adsbFiPermitted {
+                Link("adsb.fi — community ADS-B network",
+                     destination: URL(string: "https://adsb.fi")!)
+            }
             Link("OurAirports",
                  destination: URL(string: "https://ourairports.com")!)
         } header: {
             Text("Open data sources")
         } footer: {
-            Text("TailTrack reads live positions from free, community-run ADS-B aggregators. Consider feeding them from a Raspberry Pi receiver at your home field — coverage where you fly gets better and the networks stay free.")
+            Text("TailTrack reads live positions from adsb.lol, a free, community-run ADS-B network (data under the Open Database License). Consider feeding them from a Raspberry Pi receiver at your home field — coverage where you fly gets better and the networks stay free.")
         }
     }
 

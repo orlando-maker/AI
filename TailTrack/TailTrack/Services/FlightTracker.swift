@@ -9,7 +9,7 @@ import Observation
 @MainActor
 final class FlightTracker {
 
-    enum Phase: Equatable {
+    enum Phase: String, Equatable, Codable {
         case idle
         case searching          // polling, aircraft not seen yet
         case preflight          // seen on the ground, waiting for takeoff
@@ -46,8 +46,12 @@ final class FlightTracker {
 
     private var pollTask: Task<Void, Never>?
     private var discoveredHex: String?
-    private var consecutiveGroundSamples = 0
-    private var wasAirborne = false
+    /// Takeoff, landing, touch-and-go and signal-loss decisions.
+    private var detector = FlightPhaseDetector()
+    /// The flight as it was before a landing was declared, so a
+    /// touch-and-go or stop-and-go can undo what the landing changed.
+    private var preLanding: PreLandingState?
+    private var lastPersisted: Date?
     private var lastRecordedPointTime: Date?
     private var didBackfillHistory = false
     private var backfillAttempts = 0
@@ -71,14 +75,11 @@ final class FlightTracker {
         UserDefaults.standard.object(forKey: nearbyTrafficKey) as? Bool ?? true
     }
 
-    // Landing is declared after this many consecutive on-ground samples.
-    private static let groundSamplesToLand = 2
-    // After this long with no reception mid-flight, the flight ends with a
-    // "lost transponder" alert and the pilot can enter the landing manually.
-    private static let signalLossEndSeconds: TimeInterval = 480
-    // A sample counts as airborne above this groundspeed even if the
-    // transponder hasn't flipped its ground flag (some GA installs never do).
-    private static let airborneSpeedKt = 55.0
+    /// After a landing, keep listening this long: a takeoff inside it is a
+    /// touch-and-go or stop-and-go on the same flight, not a new one.
+    private static let postLandingWatch: TimeInterval = 10 * 60
+    /// Recovered flights older than this are left in the logbook as-is.
+    private static let resumeWindow: TimeInterval = 12 * 3600
 
     var isActive: Bool { phase != .idle }
 
@@ -90,8 +91,8 @@ final class FlightTracker {
         self.aircraft = aircraft
         targetCallsign = nil
         discoveredHex = aircraft.resolvedHex
-        consecutiveGroundSamples = 0
-        wasAirborne = false
+        detector = FlightPhaseDetector()
+        preLanding = nil
         lastRecordedPointTime = nil
         didBackfillHistory = false
         backfillAttempts = 0
@@ -113,6 +114,7 @@ final class FlightTracker {
         resetRadioLog()
         phase = .searching
         NotificationManager.requestAuthorization()
+        persistActiveFlight(force: true)
 
         pollTask = Task { [weak self] in
             await self?.runPollLoop()
@@ -152,8 +154,8 @@ final class FlightTracker {
         let normalized = Self.normalizeCallsign(callsign)
         targetCallsign = normalized
         discoveredHex = nil
-        consecutiveGroundSamples = 0
-        wasAirborne = false
+        detector = FlightPhaseDetector()
+        preLanding = nil
         lastRecordedPointTime = nil
         didBackfillHistory = false
         backfillAttempts = 0
@@ -173,6 +175,7 @@ final class FlightTracker {
         resetRadioLog()
         phase = .searching
         NotificationManager.requestAuthorization()
+        persistActiveFlight(force: true)
 
         pollTask = Task { [weak self] in
             await self?.runPollLoop()
@@ -201,6 +204,9 @@ final class FlightTracker {
             finalState.phaseLabel = "Flight ended"
         }
         liveActivity.end(finalState)
+        ActiveFlightStore.clear()
+        detector = FlightPhaseDetector()
+        preLanding = nil
         phase = .idle
         flight = nil
         latest = nil
@@ -219,8 +225,15 @@ final class FlightTracker {
 
     private func runPollLoop() async {
         while !Task.isCancelled {
+            // After landing, keep listening only for the watch window:
+            // flying again inside it is a touch-and-go or stop-and-go, but
+            // a takeoff after it is a new flight, never part of this one.
+            if phase == .arrived, !isWithinPostLandingWatch(at: Date()) {
+                ActiveFlightStore.clear()
+                break
+            }
             await poll()
-            if phase == .arrived || phase == .signalLost || Task.isCancelled { break }
+            if Task.isCancelled || phase == .signalLost { break }
             let seconds: Double
             switch phase {
             case .searching: seconds = 5   // find the aircraft fast
@@ -277,7 +290,7 @@ final class FlightTracker {
     /// whole flight and wheels-up/distance reflect the real departure, not
     /// the moment tracking started.
     private func backfillHistoryIfNeeded() async {
-        guard !didBackfillHistory, wasAirborne,
+        guard !didBackfillHistory, detector.hasFlown,
               let hex = discoveredHex, !hex.isEmpty else { return }
         backfillAttempts += 1
 
@@ -325,15 +338,26 @@ final class FlightTracker {
     }
 
     private func handle(_ snap: ADSBSnapshot) {
-        latest = snap
         if discoveredHex == nil || discoveredHex?.isEmpty == true {
             discoveredHex = snap.hex
             flight?.icaoHex = snap.hex
         }
-        if flight?.firstContact == nil { flight?.firstContact = snap.fetchedAt }
         if flight?.typeCode.isEmpty == true, let type = snap.typeCode {
             flight?.typeCode = type
         }
+
+        // An old position (or the same one served again with a new fetch
+        // time) must never move the flight's state, the traffic layer or the
+        // radio log. It only counts as silence.
+        let sample = PositionSample(snap)
+        guard detector.isFresh(sample),
+              sample.positionTime > (detector.lastFreshPosition ?? .distantPast) else {
+            handleNotSeen(stale: snap)
+            return
+        }
+
+        latest = snap
+        if flight?.firstContact == nil { flight?.firstContact = snap.fetchedAt }
         trackSquawk(snap)
         if phase == .enroute, !loggedArrivalATIS, let left = remainingNM, left < 40,
            let destination = flight?.destination {
@@ -352,113 +376,124 @@ final class FlightTracker {
             }
         }
 
-        // Ignore badly stale positions for track recording, but still show them.
-        let positionTime = snap.fetchedAt.addingTimeInterval(-snap.positionAgeSeconds)
-        let isFresh = snap.positionAgeSeconds < 90
-
-        // Some GA transponder installs never set the air/ground flag, so
-        // classification needs positive evidence of flight — speed, a real
-        // climb/descent rate, or altitude well above the field. A bare
-        // numeric altitude on a parked airplane must NOT count as airborne.
-        let gs = snap.groundSpeedKt ?? 0
-        let verticalRate = abs(snap.verticalRateFpm ?? 0)
-        let takeoffFieldElev = (flight?.departure?.elevationFt
-            ?? flight?.destination?.elevationFt).map(Double.init)
-        let wellAboveField = snap.baroAltitudeFt.flatMap { alt in
-            takeoffFieldElev.map { alt > $0 + 1200 }
-        } ?? false
-
-        // After flight, slow and near field elevation counts as landed even
-        // if the transponder never flips its ground flag.
-        let slowAndLow: Bool = {
-            guard wasAirborne, (snap.groundSpeedKt ?? 999) < 35,
-                  let alt = snap.baroAltitudeFt else { return false }
-            let landingFieldElev = (flight?.destination?.elevationFt
-                ?? flight?.departure?.elevationFt).map(Double.init)
-                ?? (airports?.nearest(to: CLLocationCoordinate2D(latitude: snap.latitude,
-                                                                 longitude: snap.longitude),
-                                      withinNM: 6)?.elevationFt).map(Double.init)
-            guard let ref = landingFieldElev else { return alt < 2500 }
-            return alt < ref + 2500
-        }()
-
-        let airborne = !snap.onGround && !slowAndLow &&
-            (gs > Self.airborneSpeedKt || verticalRate > 400 || wellAboveField)
-
-        if isFresh {
-            record(snap, at: positionTime, airborne: airborne)
-        }
-
-        if airborne {
-            consecutiveGroundSamples = 0
-            if !wasAirborne {
-                wasAirborne = true
-                if flight?.takeoffTime == nil {
-                    flight?.takeoffTime = positionTime
-                }
-                autoFillDeparture()
-                liveActivity.start(
-                    tailNumber: flight?.tailNumber ?? "",
-                    departureIdent: flight?.departure?.ident ?? "———",
-                    destinationIdent: flight?.destination?.ident ?? "———",
-                    state: liveActivityState()
-                )
-            }
-            phase = .enroute
-            statusDetail = "Live via \(snap.source)"
-            liveActivity.update(liveActivityState())
-        } else if wasAirborne {
-            // Only clearly ground-like samples count toward a landing; an
-            // ambiguous sample (e.g. slow cruise into a headwind with no
-            // altitude evidence) keeps the flight alive.
-            if snap.onGround || slowAndLow {
-                consecutiveGroundSamples += 1
-                if consecutiveGroundSamples >= Self.groundSamplesToLand {
-                    declareLanding(at: positionTime, coordinate:
-                        CLLocationCoordinate2D(latitude: snap.latitude, longitude: snap.longitude))
-                    return
-                }
-                statusDetail = "Rolling out…"
-            } else {
-                consecutiveGroundSamples = 0
-                statusDetail = "Live via \(snap.source)"
-            }
-        } else {
-            phase = .preflight
-            statusDetail = "On ground via \(snap.source)"
-        }
+        let context = fieldContext(latitude: sample.latitude, longitude: sample.longitude)
+        let classification = FlightPhaseDetector.classify(sample, context: context)
+        let events = detector.ingest(sample, context: context)
+        record(snap, at: sample.positionTime, onGround: classification == .ground
+               || (classification == .unclear && (detector.mode == .waiting || detector.mode == .landed)))
+        updatePhase(source: snap.source)
+        apply(events)
+        persistActiveFlight()
     }
 
-    private func handleNotSeen() {
+    /// Nothing usable this poll: no answer at all, or only a stale position.
+    private func handleNotSeen(stale: ADSBSnapshot? = nil) {
+        let now = stale?.fetchedAt ?? Date()
         switch phase {
         case .searching:
-            statusDetail = "Not broadcasting yet — waiting for the transponder to come alive."
-        case .preflight, .enroute:
-            let ago = latest.map { Date().timeIntervalSince($0.fetchedAt) } ?? 0
-            statusDetail = "Signal lost · last contact \(Format.age(ago))"
-            guard phase == .enroute, wasAirborne, ago > Self.signalLossEndSeconds,
-                  let last = flight?.track.last else { break }
-
-            // If the aircraft was last seen slow/low right next to an
-            // airport, it very likely landed there (judged against that
-            // field's elevation so mountain airports work). Otherwise the
-            // flight ends as "signal lost": the pilot gets an alert and can
-            // enter the landing time and engine hours manually.
-            let nearby = airports?.nearest(to: last.coordinate, withinNM: 6)
-            let lowNearField = last.altitudeFt.flatMap { alt in
-                nearby.map { alt < Double($0.elevationFt ?? 0) + 2500 }
-            } ?? false
-            if last.onGround || lowNearField {
-                declareLanding(at: last.time, coordinate: last.coordinate)
+            if let stale {
+                statusDetail = "Only an old position so far (\(Format.age(stale.positionAgeSeconds)) old) — waiting for a live one."
             } else {
-                endDueToSignalLoss()
+                statusDetail = "Not broadcasting yet — waiting for the transponder to come alive."
             }
+        case .preflight, .enroute:
+            let ago = detector.lastFreshPosition.map { now.timeIntervalSince($0) } ?? 0
+            statusDetail = "Signal lost · last contact \(Format.age(ago))"
+            apply(detector.noContact(at: now))
         default:
             break
         }
+        persistActiveFlight()
     }
 
-    private func record(_ snap: ADSBSnapshot, at time: Date, airborne: Bool) {
+    /// The airports around a position: one close enough to be landing at,
+    /// and the local ground reference for "clearly flying". Always the
+    /// airports actually below the airplane, never the planned destination.
+    private func fieldContext(latitude: Double, longitude: Double) -> FieldContext {
+        let here = CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+        let landingField = airports?.nearest(to: here, withinNM: 2.5)
+        let localField = airports?.nearest(to: here, withinNM: 10)
+        return FieldContext(
+            nearbyFieldElevationFt: landingField?.elevationFt.map(Double.init),
+            referenceElevationFt: (localField?.elevationFt ?? flight?.departure?.elevationFt).map(Double.init)
+        )
+    }
+
+    private func updatePhase(source: String) {
+        switch detector.mode {
+        case .waiting:
+            phase = .preflight
+            statusDetail = "On ground via \(source)"
+        case .airborne:
+            phase = .enroute
+            statusDetail = "Live via \(source)"
+            liveActivity.update(liveActivityState())
+        case .rollout:
+            phase = .enroute
+            statusDetail = "Rolling out…"
+            liveActivity.update(liveActivityState())
+        case .landed:
+            phase = .arrived
+        }
+    }
+
+    private func apply(_ events: [FlightPhaseDetector.Event]) {
+        for event in events {
+            switch event {
+            case .takeoff(let time):
+                if flight?.takeoffTime == nil { flight?.takeoffTime = time }
+                autoFillDeparture()
+                startLiveActivity()
+            case .touchAndGo:
+                statusDetail = "Touch-and-go · landing \(detector.landingCount)"
+            case .landed(let time, let latitude, let longitude):
+                declareLanding(at: time, coordinate: CLLocationCoordinate2D(latitude: latitude,
+                                                                          longitude: longitude))
+            case .resumedAfterLanding:
+                resumeAfterLanding()
+            case .signalLost:
+                resolveSignalLoss()
+            }
+        }
+    }
+
+    /// No fresh position for eight minutes while flying. If the airplane was
+    /// last seen low and right at an airport, it almost certainly landed
+    /// there (judged against that field's elevation, so mountain airports
+    /// work). Otherwise the flight ends as "signal lost" and the pilot is
+    /// asked for the landing time and engine hours.
+    private func resolveSignalLoss() {
+        guard let last = flight?.track.last else {
+            endDueToSignalLoss()
+            return
+        }
+        let field = airports?.nearest(to: last.coordinate, withinNM: 3)
+        let lowAtField = last.altitudeFt.flatMap { altitude in
+            field.map { altitude < Double($0.elevationFt ?? 0) + 1200 }
+        } ?? false
+        if last.onGround || lowAtField {
+            detector.markLanded(at: last.time)
+            declareLanding(at: last.time, coordinate: last.coordinate)
+        } else {
+            endDueToSignalLoss()
+        }
+    }
+
+    private func isWithinPostLandingWatch(at time: Date) -> Bool {
+        guard let landedAt = detector.landedAt else { return false }
+        return time.timeIntervalSince(landedAt) < Self.postLandingWatch
+    }
+
+    private func startLiveActivity() {
+        liveActivity.start(
+            tailNumber: flight?.tailNumber ?? "",
+            departureIdent: flight?.departure?.ident ?? "———",
+            destinationIdent: flight?.destination?.ident ?? "———",
+            state: liveActivityState()
+        )
+    }
+
+    private func record(_ snap: ADSBSnapshot, at time: Date, onGround: Bool) {
         // Avoid duplicate samples when the aggregator hasn't seen a newer position.
         if let lastTime = lastRecordedPointTime, time.timeIntervalSince(lastTime) < 2 { return }
         lastRecordedPointTime = time
@@ -467,11 +502,11 @@ final class FlightTracker {
             time: time,
             latitude: snap.latitude,
             longitude: snap.longitude,
-            altitudeFt: snap.baroAltitudeFt ?? (airborne ? snap.geoAltitudeFt : nil),
+            altitudeFt: snap.baroAltitudeFt ?? (onGround ? nil : snap.geoAltitudeFt),
             groundSpeedKt: snap.groundSpeedKt,
             trackDeg: snap.trackDeg,
             verticalRateFpm: snap.verticalRateFpm,
-            onGround: !airborne
+            onGround: onGround
         ))
     }
 
@@ -483,6 +518,9 @@ final class FlightTracker {
     }
 
     private func declareLanding(at time: Date, coordinate: CLLocationCoordinate2D) {
+        preLanding = PreLandingState(destination: flight?.destination,
+                                     notes: flight?.notes ?? "",
+                                     plannedDestinationIdent: flight?.plannedDestinationIdent)
         flight?.landingTime = time
 
         if let actual = airports?.nearest(to: coordinate) {
@@ -506,13 +544,31 @@ final class FlightTracker {
 
         phase = .arrived
         statusDetail = "Landed"
-        cancelPolling()
         liveActivity.end(liveActivityState())
 
         if let f = flight, f.isMeaningful {
             logbook?.add(f)
             captureWeather(for: f)
         }
+        persistActiveFlight(force: true)
+    }
+
+    /// Airborne again after a declared landing: a stop-and-go or taxi-back
+    /// in the pattern, or a landing call that was wrong. Same flight; the
+    /// landing's changes are undone, and the logbook keeps its landed copy
+    /// until the real landing replaces it.
+    private func resumeAfterLanding() {
+        if let preLanding {
+            flight?.destination = preLanding.destination
+            flight?.notes = preLanding.notes
+            flight?.plannedDestinationIdent = preLanding.plannedDestinationIdent
+        }
+        preLanding = nil
+        flight?.landingTime = nil
+        phase = .enroute
+        statusDetail = "Off again · landing \(detector.landingCount) logged"
+        startLiveActivity()
+        persistActiveFlight(force: true)
     }
 
     // MARK: - Radio log
@@ -656,6 +712,7 @@ final class FlightTracker {
         phase = .signalLost
         statusDetail = "Transponder signal lost — set the landing time when you're down."
         cancelPolling()
+        ActiveFlightStore.clear()
         liveActivity.end(liveActivityState())
         NotificationManager.send(
             title: "Lost transponder signal",
@@ -678,6 +735,106 @@ final class FlightTracker {
         if let f = flight, f.isMeaningful {
             logbook?.add(f)
         }
+    }
+
+    // MARK: - Surviving app termination
+
+    /// Saves the flight in progress, at most every 15 seconds unless forced,
+    /// so a relaunch after iOS ends the app can pick it back up.
+    private func persistActiveFlight(force: Bool = false) {
+        guard phase != .idle, let flight else { return }
+        if !force, let last = lastPersisted, Date().timeIntervalSince(last) < 15 { return }
+        lastPersisted = Date()
+        ActiveFlightStore.save(ActiveFlightSnapshot(
+            savedAt: Date(),
+            phase: phase,
+            flight: flight,
+            aircraft: aircraft,
+            targetCallsign: targetCallsign,
+            discoveredHex: discoveredHex,
+            detector: detector,
+            visitedViaIdents: Array(visitedViaIdents),
+            lastSquawk: lastSquawk,
+            loggedArrivalATIS: loggedArrivalATIS,
+            preLanding: preLanding
+        ))
+    }
+
+    /// Called at launch. If the app was ended mid-flight, picks the same
+    /// flight back up, replays what the ADS-B networks recorded while
+    /// TailTrack was gone through the same detector (so a landing that
+    /// happened meanwhile lands at its real time), and keeps tracking.
+    func resumeInterruptedFlightIfAny() {
+        guard phase == .idle, let saved = ActiveFlightStore.load() else { return }
+        let stillCurrent = saved.phase != .arrived || saved.detector.landedAt.map {
+            Date().timeIntervalSince($0) < Self.postLandingWatch
+        } ?? false
+        guard Date().timeIntervalSince(saved.savedAt) < Self.resumeWindow,
+              [.searching, .preflight, .enroute, .arrived].contains(saved.phase),
+              stillCurrent else {
+            ActiveFlightStore.clear()
+            return
+        }
+
+        flight = saved.flight
+        aircraft = saved.aircraft
+        targetCallsign = saved.targetCallsign
+        discoveredHex = saved.discoveredHex
+        detector = saved.detector
+        visitedViaIdents = Set(saved.visitedViaIdents)
+        lastSquawk = saved.lastSquawk
+        pendingSquawk = nil
+        loggedArrivalATIS = saved.loggedArrivalATIS
+        preLanding = saved.preLanding
+        phase = saved.phase
+        lastRecordedPointTime = saved.flight.track.last?.time
+        didBackfillHistory = false
+        backfillAttempts = 0
+        lastTrafficFetch = nil
+        nearbyTraffic = []
+        latest = nil
+        statusDetail = "Picked your flight back up — catching up on what TailTrack missed…"
+        liveActivity.reattach()
+
+        pollTask = Task { [weak self] in
+            await self?.catchUpAfterInterruption()
+            await self?.runPollLoop()
+        }
+    }
+
+    private func catchUpAfterInterruption() async {
+        guard let hex = discoveredHex, !hex.isEmpty,
+              let since = flight?.track.last?.time ?? flight?.startedTracking else { return }
+        let history = await client.historicalTrack(hex: hex)
+        guard !Task.isCancelled else { return }
+        let missed = FlightSegmenter.thinned(
+            history.filter { $0.time > since }.sorted { $0.time < $1.time }, limit: 2000)
+        guard !missed.isEmpty else { return }
+
+        // Nearby-airport lookups scan the whole database; neighbouring
+        // points share them (≈1 nm cells).
+        var contexts: [String: FieldContext] = [:]
+        for point in missed {
+            // Once landed, anything after the watch window belongs to a
+            // later flight.
+            if detector.mode == .landed, !isWithinPostLandingWatch(at: point.time) { break }
+            let key = "\(Int((point.latitude * 50).rounded()))/\(Int((point.longitude * 50).rounded()))"
+            let context = contexts[key] ?? fieldContext(latitude: point.latitude, longitude: point.longitude)
+            contexts[key] = context
+            let sample = PositionSample(positionTime: point.time, receivedAt: point.time,
+                                        latitude: point.latitude, longitude: point.longitude,
+                                        baroAltitudeFt: point.altitudeFt, geoAltitudeFt: nil,
+                                        groundSpeedKt: point.groundSpeedKt,
+                                        verticalRateFpm: point.verticalRateFpm,
+                                        onGround: point.onGround)
+            let events = detector.ingest(sample, context: context)
+            flight?.track.append(point)
+            lastRecordedPointTime = point.time
+            updatePhase(source: "flight history")
+            apply(events)
+        }
+        statusDetail = "Caught up · \(missed.count) missed positions recovered"
+        persistActiveFlight(force: true)
     }
 
     // MARK: - Live progress numbers
@@ -727,5 +884,26 @@ final class FlightTracker {
     var contactAgeSeconds: TimeInterval? {
         guard let latest else { return nil }
         return Date().timeIntervalSince(latest.fetchedAt) + latest.positionAgeSeconds
+    }
+}
+
+/// What a landing changed, kept so a touch-and-go can put it back.
+struct PreLandingState: Codable, Equatable {
+    var destination: Airport?
+    var notes: String
+    var plannedDestinationIdent: String?
+}
+
+extension PositionSample {
+    init(_ snap: ADSBSnapshot) {
+        self.init(positionTime: snap.fetchedAt.addingTimeInterval(-snap.positionAgeSeconds),
+                  receivedAt: snap.fetchedAt,
+                  latitude: snap.latitude,
+                  longitude: snap.longitude,
+                  baroAltitudeFt: snap.baroAltitudeFt,
+                  geoAltitudeFt: snap.geoAltitudeFt,
+                  groundSpeedKt: snap.groundSpeedKt,
+                  verticalRateFpm: snap.verticalRateFpm,
+                  onGround: snap.onGround)
     }
 }
