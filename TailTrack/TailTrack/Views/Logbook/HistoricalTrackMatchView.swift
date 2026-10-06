@@ -115,7 +115,7 @@ struct HistoricalTrackMatchView: View {
             HStack(alignment: .center, spacing: 12) {
                 Image(systemName: selected ? "checkmark.circle.fill" : "circle")
                     .font(.title3)
-                    .foregroundStyle(selected ? Theme.brandOrange : .secondary)
+                    .foregroundStyle(selected ? Theme.accent : .secondary)
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(spacing: 6) {
                         Text("\(Format.localTime(segment.takeoff)) – \(Format.localTime(segment.landing))")
@@ -125,8 +125,8 @@ struct HistoricalTrackMatchView: View {
                                 .font(.caption2.weight(.heavy).monospaced())
                                 .padding(.horizontal, 5)
                                 .padding(.vertical, 2)
-                                .background(Theme.brandOrange.opacity(0.15), in: Capsule())
-                                .foregroundStyle(Theme.brandOrange)
+                                .background(Theme.accent.opacity(0.15), in: Capsule())
+                                .foregroundStyle(Theme.accent)
                         }
                     }
                     Text("\(candidate.from?.ident ?? "———") → \(candidate.to?.ident ?? "———")")

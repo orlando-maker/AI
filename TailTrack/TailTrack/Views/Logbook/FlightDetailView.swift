@@ -101,9 +101,9 @@ struct FlightDetailView: View {
             .foregroundStyle(.white)
             HStack(spacing: 8) {
                 GlassTile(label: "Wheels up",
-                          value: flight.takeoffTime.map(Format.localTime) ?? "—")
+                          value: flight.takeoffTime.map(Format.clockTime) ?? "—")
                 GlassTile(label: "Landed",
-                          value: flight.landingTime.map(Format.localTime) ?? "—")
+                          value: flight.landingTime.map(Format.clockTime) ?? "—")
                 GlassTile(label: "Time",
                           value: flight.flightTime.map(Format.duration) ?? "—")
             }

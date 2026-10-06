@@ -19,9 +19,28 @@ enum Format {
         String(format: "%.1f h", interval / 3600)
     }
 
+    /// Always the phone's local time: for things people outside the
+    /// cockpit read, like a shared flight story.
     static func localTime(_ date: Date) -> String {
         date.formatted(date: .omitted, time: .shortened)
     }
+
+    /// The pilot's chosen clock (Settings → Customize): local "2:30 PM" or
+    /// Zulu "14:30Z".
+    static func clockTime(_ date: Date) -> String {
+        switch Customization.shared.clock {
+        case .local: return localTime(date)
+        case .zulu: return zuluFormatter.string(from: date) + "Z"
+        }
+    }
+
+    private static let zuluFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(identifier: "UTC")
+        formatter.dateFormat = "HH:mm"
+        return formatter
+    }()
 
     static func dayAndTime(_ date: Date) -> String {
         date.formatted(date: .abbreviated, time: .shortened)

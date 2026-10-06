@@ -78,7 +78,7 @@ struct FullScreenFlightMapView: View {
                     .padding(10)
                     .floatingGlass(Circle())
             }
-            .foregroundStyle(showTraffic ? Theme.brandOrange : Color.primary)
+            .foregroundStyle(showTraffic ? Theme.accent : Color.primary)
 
             Button {
                 if pro.isPro {
@@ -106,7 +106,7 @@ struct FullScreenFlightMapView: View {
             fullMapStat("ALT", tracker.latest?.baroAltitudeFt.map(Format.feet) ?? "—")
             fullMapStat("GS", tracker.latest?.groundSpeedKt.map(Format.knots) ?? "—")
             fullMapStat("LEFT", tracker.remainingNM.map(Format.nm) ?? "—")
-            fullMapStat("ETA", tracker.eta.map(Format.localTime) ?? "—")
+            fullMapStat("ETA", tracker.eta.map(Format.clockTime) ?? "—")
         }
         .padding(.vertical, 10)
         .floatingGlass(RoundedRectangle(cornerRadius: 16))

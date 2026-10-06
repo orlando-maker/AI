@@ -26,8 +26,8 @@ struct RadioLogCard: View {
                             .lineLimit(1)
                             .padding(.horizontal, 7)
                             .padding(.vertical, 3)
-                            .background(Theme.brandOrange.opacity(0.15), in: Capsule())
-                            .foregroundStyle(Theme.brandOrange)
+                            .background(Theme.accent.opacity(0.15), in: Capsule())
+                            .foregroundStyle(Theme.accent)
                     }
                     Image(systemName: "chevron.right")
                         .font(.caption.weight(.semibold))
@@ -60,7 +60,7 @@ struct RadioEntryRow: View {
 
     private var tint: Color {
         if entry.kind == .squawk, Squawk.isEmergency(entry.text.filter(\.isNumber)) { return .red }
-        return entry.kind == .atis || entry.kind == .squawk ? Theme.brandOrange : .secondary
+        return entry.kind == .atis || entry.kind == .squawk ? Theme.accent : .secondary
     }
 
     var body: some View {
@@ -87,7 +87,7 @@ struct RadioEntryRow: View {
             }
             Spacer(minLength: 8)
             VStack(alignment: .trailing, spacing: 2) {
-                Text(Format.localTime(entry.time))
+                Text(Format.clockTime(entry.time))
                     .font(.caption.monospacedDigit())
                     .foregroundStyle(.secondary)
                 if !compact, let altitude = entry.altitudeFt {
@@ -126,7 +126,7 @@ struct RadioLogSheet: View {
                                     VStack(spacing: 6) {
                                         Image(systemName: kind.symbol)
                                             .font(.title3)
-                                            .foregroundStyle(Theme.brandOrange)
+                                            .foregroundStyle(Theme.accent)
                                         Text(kind.label)
                                             .font(.caption.weight(.semibold))
                                     }
@@ -189,7 +189,7 @@ struct RadioLogSheet: View {
                     HStack(spacing: 12) {
                         Image(systemName: isPlaying ? "stop.circle.fill" : "play.circle.fill")
                             .font(.title2)
-                            .foregroundStyle(Theme.brandOrange)
+                            .foregroundStyle(Theme.accent)
                             .contentTransition(.symbolEffect(.replace))
                         VStack(alignment: .leading, spacing: 1) {
                             Text(stream.name)

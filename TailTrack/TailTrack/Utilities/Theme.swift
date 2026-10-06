@@ -6,10 +6,11 @@ import UIKit
 /// gradients and card styling.
 enum Theme {
 
-    /// TailTrack brand orange — the landing page / Dynamic Island
-    /// red-orange.
-    static let brandOrange = Color(red: 0.94, green: 0.33, blue: 0.13)
-    static let brandOrangeDeep = Color(red: 0.78, green: 0.24, blue: 0.08)
+    /// The accent: the brand's red-orange unless a Pro pilot picked another
+    /// in Customize. Reading it registers the view with `Customization`, so
+    /// changing the choice re-renders every screen that uses it.
+    static var accent: Color { Customization.shared.effectiveAccent.color }
+    static var accentDeep: Color { Customization.shared.effectiveAccent.deep }
 
     /// Screen background: warm cream paper in light mode, ink-navy black
     /// at night — the website's palette.

@@ -103,12 +103,12 @@ struct AirportWeatherSheet: View {
                     .font(.system(.title, design: .rounded).weight(.heavy))
                     .foregroundStyle(.white)
                     .frame(width: 48, height: 48)
-                    .background(Theme.brandOrange, in: RoundedRectangle(cornerRadius: 10))
+                    .background(Theme.accent, in: RoundedRectangle(cornerRadius: 10))
                 VStack(alignment: .leading, spacing: 2) {
                     Text("INFORMATION \((decoded.information ?? report.letter ?? "").uppercased())")
                         .font(.caption.weight(.semibold).monospaced())
                         .tracking(0.6)
-                        .foregroundStyle(Theme.brandOrange)
+                        .foregroundStyle(Theme.accent)
                     Text(report.title + (decoded.issuedZulu.map { " · \($0)" } ?? ""))
                         .font(.headline)
                     if let issued = decoded.issuedAt {
@@ -144,7 +144,7 @@ struct AirportWeatherSheet: View {
                     ForEach(decoded.notices, id: \.self) { notice in
                         HStack(alignment: .firstTextBaseline, spacing: 8) {
                             Circle()
-                                .fill(Theme.brandOrange)
+                                .fill(Theme.accent)
                                 .frame(width: 5, height: 5)
                                 .alignmentGuide(.firstTextBaseline) { $0[.bottom] - 1 }
                             Text(notice)
@@ -161,7 +161,7 @@ struct AirportWeatherSheet: View {
                     .padding(.horizontal, 12)
                     .padding(.vertical, 9)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Theme.brandOrange.opacity(0.12), in: RoundedRectangle(cornerRadius: 10))
+                    .background(Theme.accent.opacity(0.12), in: RoundedRectangle(cornerRadius: 10))
             }
 
             DisclosureGroup(isExpanded: Binding(
@@ -190,12 +190,12 @@ struct AirportWeatherSheet: View {
         // D-ATIS is reissued at least hourly; an older one has probably
         // been replaced on frequency.
         if Date().timeIntervalSince(issued) > 75 * 60 {
-            Label("Issued \(Format.localTime(issued)), over an hour ago. The broadcast may have changed.",
+            Label("Issued \(Format.clockTime(issued)), over an hour ago. The broadcast may have changed.",
                   systemImage: "exclamationmark.triangle.fill")
                 .font(.caption)
                 .foregroundStyle(.orange)
         } else {
-            Text("Issued \(Format.localTime(issued)) local · \(issued, style: .relative) ago")
+            Text("Issued \(Format.clockTime(issued)) · \(issued, style: .relative) ago")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
@@ -211,7 +211,7 @@ struct AirportWeatherSheet: View {
                 Text(frequency.formatted)
                     .font(.system(.largeTitle, design: .rounded).weight(.heavy).monospacedDigit())
                     .tracking(-0.6)
-                    .foregroundStyle(Theme.brandOrange)
+                    .foregroundStyle(Theme.accent)
                     .textSelection(.enabled)
             } else {
                 Text("Only larger airports publish ATIS as text. Check the METAR below, or listen on the nearest AWOS or ASOS.")
@@ -248,7 +248,7 @@ struct AirportWeatherSheet: View {
                     Spacer()
                     Text(frequency.formatted)
                         .font(.callout.monospacedDigit().weight(.semibold))
-                        .foregroundStyle(frequency.isWeatherBroadcast ? Theme.brandOrange : .primary)
+                        .foregroundStyle(frequency.isWeatherBroadcast ? Theme.accent : .primary)
                         .textSelection(.enabled)
                 }
             }

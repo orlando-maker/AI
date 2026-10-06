@@ -4,6 +4,7 @@ import UIKit
 struct RootView: View {
     @Environment(AirportStore.self) private var airports
     @Environment(ProfileStore.self) private var profileStore
+    @Environment(ProStore.self) private var pro
     @AppStorage(LegalDocuments.acceptedVersionKey) private var acceptedLegalVersion = 0
     @AppStorage("hasCompletedAccountSetup") private var hasCompletedAccountSetup = false
     @AppStorage(AppearanceSetting.storageKey) private var appearanceRaw = AppearanceSetting.system.rawValue
@@ -41,6 +42,9 @@ struct RootView: View {
                 .tabItem { Label("Settings", systemImage: "gearshape") }
         }
         .fontDesign(.rounded)
+        .tint(Theme.accent)
+        .onChange(of: pro.isPro) { _, _ in syncProCustomization() }
+        .onChange(of: pro.hasCheckedEntitlement) { _, _ in syncProCustomization() }
         .preferredColorScheme(AppearanceSetting(rawValue: appearanceRaw)?.colorScheme)
         .onOpenURL { GoogleAuth.handle(url: $0) }
         .fullScreenCover(item: Binding(
@@ -69,6 +73,18 @@ struct RootView: View {
         }
         .onAppear { applyAppearanceOverride(animated: false) }
         .onChange(of: appearanceRaw) { _, _ in applyAppearanceOverride(animated: true) }
+    }
+
+    /// Keeps Pro-only customizations in step with StoreKit: they stay while
+    /// Pro is active (cached across launches) and fall back to the
+    /// defaults if it lapses.
+    private func syncProCustomization() {
+        guard pro.hasCheckedEntitlement else { return }
+        let customization = Customization.shared
+        customization.proUnlocked = pro.isPro
+        if !pro.isPro, customization.currentAppIcon.requiresPro {
+            Task { try? await customization.setAppIcon(.paper) }
+        }
     }
 
     /// A forced Light/Dark theme must reach every presentation — sheets and

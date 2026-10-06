@@ -18,6 +18,9 @@ final class ProStore {
 
     private(set) var products: [Product] = []
     private(set) var isPro = false
+    /// True once StoreKit has answered at least once this launch, so a
+    /// "not Pro" before that is just "not known yet".
+    private(set) var hasCheckedEntitlement = false
     private(set) var purchaseError: String?
     private(set) var isLoading = false
 
@@ -77,6 +80,7 @@ final class ProStore {
         if debugProOverride { entitled = true }
         #endif
         isPro = entitled
+        hasCheckedEntitlement = true
     }
 
     func purchase(_ product: Product) async {

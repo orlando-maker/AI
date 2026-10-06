@@ -35,6 +35,11 @@ struct SettingsView: View {
                 }
             }
             .pickerStyle(.segmented)
+            NavigationLink {
+                CustomizeView()
+            } label: {
+                Label("Customize", systemImage: "paintpalette")
+            }
         }
     }
 

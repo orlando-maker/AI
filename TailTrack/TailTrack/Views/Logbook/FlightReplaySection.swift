@@ -55,7 +55,7 @@ struct FlightReplaySection: View {
                 .buttonStyle(.pressableControl)
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(currentPoint.map { Format.localTime($0.time) } ?? "—")
+                    Text(currentPoint.map { Format.clockTime($0.time) } ?? "—")
                         .font(.subheadline.weight(.bold))
                         .monospacedDigit()
                     if let takeoff = flight.takeoffTime, let time = currentPoint?.time,

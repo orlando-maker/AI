@@ -59,6 +59,7 @@ struct PaywallView: View {
             feature("doc.viewfinder", "Logbook page scanning", "Photograph your paper logbook — on-device recognition imports the entries.")
             feature("square.and.arrow.up", "Exports & share cards", "GPX and CSV per flight, your whole logbook as one CSV, and shareable flight cards.")
             feature("globe.americas.fill", "Satellite maps", "Hybrid satellite imagery with realistic terrain on the live map.")
+            feature("paintpalette.fill", "Customize TailTrack", "Five more accent colors and three alternate app icons.")
             feature("person.3.fill", "Family Sharing", "One purchase covers everyone in your family group.")
         }
         .padding(18)

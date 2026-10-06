@@ -288,7 +288,7 @@ struct FlightSetupView: View {
                 } label: {
                     HStack(spacing: 12) {
                         Image(systemName: "headphones")
-                            .foregroundStyle(Theme.brandOrange)
+                            .foregroundStyle(Theme.accent)
                             .frame(width: 22)
                         VStack(alignment: .leading, spacing: 1) {
                             Text(airport.ident).bold()
@@ -368,7 +368,7 @@ struct FlightSetupView: View {
             if let ete = plan.eteSeconds {
                 LabeledContent("Time enroute", value: Format.duration(ete))
                 LabeledContent("Arrive (if wheels up now)",
-                               value: Format.localTime(Date().addingTimeInterval(ete)))
+                               value: Format.clockTime(Date().addingTimeInterval(ete)))
             }
         }
     }

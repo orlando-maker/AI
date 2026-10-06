@@ -174,12 +174,12 @@ struct FlightMapView: View {
                         .rotationEffect(.degrees((currentTrackDeg ?? 90) - 90))
                         .padding(7)
                         .background(
-                            LinearGradient(colors: [Theme.brandOrange, Theme.brandOrangeDeep],
+                            LinearGradient(colors: [Theme.accent, Theme.accentDeep],
                                            startPoint: .top, endPoint: .bottom),
                             in: Circle()
                         )
                         .overlay(Circle().strokeBorder(.white, lineWidth: 2))
-                        .shadow(color: Theme.brandOrange.opacity(0.55), radius: 6)
+                        .shadow(color: Theme.accent.opacity(0.55), radius: 6)
                 }
             }
         }
@@ -225,7 +225,7 @@ struct FlightMapView: View {
                         .contentTransition(.symbolEffect(.replace))
                         .padding(9)
                         .floatingGlass(Circle())
-                        .foregroundStyle(followAircraft ? Theme.brandOrange : Color.primary)
+                        .foregroundStyle(followAircraft ? Theme.accent : Color.primary)
                 }
                 .buttonStyle(.pressableControl)
                 .sensoryFeedback(.selection, trigger: followAircraft)

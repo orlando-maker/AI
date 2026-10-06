@@ -99,7 +99,7 @@ struct PassportView: View {
                 let coords = thinned(flight.track)
                 if coords.count > 1 {
                     MapPolyline(coordinates: coords)
-                        .stroke(Theme.brandOrange.opacity(0.55), lineWidth: 2)
+                        .stroke(Theme.accent.opacity(0.55), lineWidth: 2)
                 }
             }
             ForEach(stamps) { stamp in

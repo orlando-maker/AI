@@ -10,7 +10,7 @@ struct StatusChip: View {
         case .idle: return .gray
         case .searching: return .gray
         case .preflight: return .orange
-        case .enroute: return Theme.brandOrange
+        case .enroute: return Theme.accent
         case .arrived: return .green
         case .signalLost: return .red
         }

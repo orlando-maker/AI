@@ -133,7 +133,7 @@ struct LiveFlightView: View {
                 destinationIdent: tracker.flight?.destination?.ident ?? "———",
                 progress: tracker.progress
             )
-            .tint(Theme.brandOrange)
+            .tint(Theme.accent)
             .foregroundStyle(.white)
 
             timesRow
@@ -184,14 +184,14 @@ struct LiveFlightView: View {
     private var timesRow: some View {
         HStack(spacing: 8) {
             GlassTile(label: "Wheels up",
-                      value: tracker.flight?.takeoffTime.map(Format.localTime) ?? "—")
+                      value: tracker.flight?.takeoffTime.map(Format.clockTime) ?? "—")
             GlassTile(label: "Elapsed",
                       value: tracker.elapsed.map(Format.duration) ?? "—")
             GlassTile(label: "ETE left",
                       value: tracker.eteRemaining.map(Format.duration) ?? "—")
             GlassTile(label: "ETA",
-                      value: tracker.eta.map(Format.localTime) ??
-                             (tracker.phase == .arrived ? tracker.flight?.landingTime.map(Format.localTime) ?? "—" : "—"))
+                      value: tracker.eta.map(Format.clockTime) ??
+                             (tracker.phase == .arrived ? tracker.flight?.landingTime.map(Format.clockTime) ?? "—" : "—"))
         }
     }
 
@@ -264,7 +264,7 @@ struct LiveFlightView: View {
                         .contentTransition(.symbolEffect(.replace))
                         .padding(9)
                         .floatingGlass(Circle())
-                        .foregroundStyle(showTraffic ? Theme.brandOrange : Color.primary)
+                        .foregroundStyle(showTraffic ? Theme.accent : Color.primary)
                 }
             }
             .buttonStyle(.pressableControl)
@@ -302,7 +302,7 @@ struct LiveFlightView: View {
                                     if let letter = atis[metar.ident]?.first?.letter {
                                         Text("INFO \(letter)")
                                             .font(.caption2.weight(.heavy).monospaced())
-                                            .foregroundStyle(Theme.brandOrange)
+                                            .foregroundStyle(Theme.accent)
                                     }
                                 }
                                 Text([metar.windSummary, metar.visibility,
