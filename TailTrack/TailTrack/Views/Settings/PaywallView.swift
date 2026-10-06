@@ -13,6 +13,7 @@ struct PaywallView: View {
                     hero
                     featureList
                     productButtons
+                    madeByCard
                     footerLinks
                 }
                 .padding()
@@ -41,7 +42,8 @@ struct PaywallView: View {
                 .font(.system(.largeTitle, design: .rounded).weight(.heavy))
                 .tracking(-0.8)
                 .foregroundStyle(.white)
-            Text("For pilots who fly more than one plane —\nand want their data everywhere.")
+            Text(pro.trialLength.map { "Try everything free for \($0)." }
+                 ?? "For pilots who fly more than one plane —\nand want their data everywhere.")
                 .font(.subheadline)
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.white.opacity(0.75))
@@ -57,6 +59,7 @@ struct PaywallView: View {
             feature("person.2.fill", "Crew Mode", "Track any airline flight by callsign — DAL, AAL, UAL, and everyone else.")
             feature("chart.bar.fill", "Pilot Stats", "Hours by month, personal records, most-visited airports.")
             feature("doc.viewfinder", "Logbook page scanning", "Photograph your paper logbook — on-device recognition imports the entries.")
+            feature("point.topleft.down.to.point.bottomright.curvepath", "Past flight paths", "TailTrack finds the real ADS-B track of flights you flew before you had the app, back as far as the archives go.")
             feature("square.and.arrow.up", "Exports & share cards", "GPX and CSV per flight, your whole logbook as one CSV, and shareable flight cards.")
             feature("globe.americas.fill", "Satellite maps", "Hybrid satellite imagery with realistic terrain on the live map.")
             feature("paintpalette.fill", "Customize TailTrack", "Five more accent colors and three alternate app icons.")
@@ -129,6 +132,10 @@ struct PaywallView: View {
     }
 
     private func subtitle(for product: Product) -> String {
+        if let trial = pro.freeTrial(for: product) {
+            let per = product.id == ProStore.ProductID.monthly ? "month" : "year"
+            return "\(ProStore.length(of: trial)) free, then \(product.displayPrice) a \(per)"
+        }
         switch product.id {
         case ProStore.ProductID.monthly: return "Billed monthly · cancel anytime"
         case ProStore.ProductID.yearly: return "Best value — under $2/month"
@@ -137,8 +144,29 @@ struct PaywallView: View {
         }
     }
 
+    /// Apple requires the trial and renewal terms next to the purchase
+    /// buttons.
+    private var renewalTerms: String {
+        let renewal = "Subscriptions renew automatically until cancelled in Settings → your name → Subscriptions. Prices shown in your local currency at purchase."
+        guard let trial = pro.trialLength else { return renewal }
+        return "The free trial is for new subscribers. After \(trial), the subscription starts at the price shown unless you cancel at least 24 hours before the trial ends. " + renewal
+    }
+
     private func isBestValue(_ product: Product) -> Bool {
         product.id == ProStore.ProductID.yearly
+    }
+
+    private var madeByCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label("By a pilot, for pilots", systemImage: "graduationcap.fill")
+                .font(.headline)
+            Text("TailTrack is designed and built by a high school student pilot. Subscribing supports a student's work and keeps TailTrack independent, ad-free and growing, for student pilots, seasoned pilots and anyone who just loves to fly.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .cardSurface(18)
     }
 
     private var footerLinks: some View {
@@ -158,7 +186,7 @@ struct PaywallView: View {
                 }
             }
             .font(.caption.weight(.semibold))
-            Text("Subscriptions renew automatically until cancelled in Settings. Prices shown in your local currency at purchase.")
+            Text(renewalTerms)
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
                 .multilineTextAlignment(.center)

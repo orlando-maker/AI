@@ -14,14 +14,7 @@ struct HistoricalTrackMatchView: View {
 
     private enum LoadState { case loading, loaded, failed(String) }
 
-    /// A flight from that day, with its airports resolved once up front
-    /// (a nearest-airport lookup scans the whole database).
-    private struct Candidate: Identifiable {
-        let segment: FlightSegment
-        let from: Airport?
-        let to: Airport?
-        var id: UUID { segment.id }
-    }
+    private typealias Candidate = PastFlightCandidate
 
     @State private var state: LoadState = .loading
     @State private var candidates: [Candidate] = []
@@ -31,15 +24,7 @@ struct HistoricalTrackMatchView: View {
 
     private var tail: String { NNumber.normalize(flight.tailNumber) }
 
-    /// The flight's own hex, else the fleet's (which honors a manual
-    /// override), else the FAA N-number derivation.
-    private var hex: String? {
-        if let own = flight.icaoHex, !own.isEmpty { return own.lowercased() }
-        if let plane = fleet.aircraft.first(where: { NNumber.normalize($0.tailNumber) == tail }) {
-            return plane.resolvedHex
-        }
-        return NNumber.icaoHex(for: tail) ?? ForeignRegistration.canadianHex(for: tail)
-    }
+    private var hex: String? { PastFlightPaths.hex(for: flight, fleet: fleet) }
 
     var body: some View {
         NavigationStack {
@@ -186,14 +171,8 @@ struct HistoricalTrackMatchView: View {
                              of: flight.startedTracking) ?? flight.startedTracking
     }
 
-    /// Another logbook entry for this tail already owns this stretch of sky.
     private func isAlreadyLogged(_ segment: FlightSegment) -> Bool {
-        logbook.flights.contains { other in
-            other.id != flight.id
-                && NNumber.normalize(other.tailNumber) == tail
-                && other.track.count > 1
-                && (other.takeoffTime.map { abs($0.timeIntervalSince(segment.takeoff)) < 5 * 60 } ?? false)
-        }
+        PastFlightPaths.isAlreadyLogged(segment, for: flight, in: logbook.flights)
     }
 
     private func selectBest() {
@@ -208,18 +187,10 @@ struct HistoricalTrackMatchView: View {
             state = .failed("TailTrack can't work out the transponder code for \(tail). Add its Mode S hex in the aircraft's settings, then try again.")
             return
         }
-        let points = await ADSBClient().dayTrack(hex: hex, localDay: flight.startedTracking)
-        let dayStart = Calendar.current.startOfDay(for: flight.startedTracking)
-        let dayEnd = dayStart.addingTimeInterval(24 * 3600)
-        candidates = FlightSegmenter.flights(in: points)
-            .filter { $0.takeoff >= dayStart && $0.takeoff < dayEnd }
-            .map { segment in
-                Candidate(segment: segment,
-                          from: segment.firstPoint.flatMap { airports.nearest(to: $0.coordinate) },
-                          to: segment.lastPoint.flatMap { airports.nearest(to: $0.coordinate) })
-            }
+        let day = await PastFlightPaths.candidates(hex: hex, day: flight.startedTracking, airports: airports)
+        candidates = day.flights
         if candidates.isEmpty {
-            state = .failed(points.isEmpty
+            state = .failed(!day.sawAircraft
                 ? "No ADS-B history found for \(tail) on this day. The networks may not have had coverage there, the archive for that day may be unavailable, or the date may be wrong."
                 : "\(tail) was seen that day, but never long enough in the air to count as a flight.")
         } else {

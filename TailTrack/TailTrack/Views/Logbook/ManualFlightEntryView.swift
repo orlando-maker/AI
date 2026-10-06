@@ -4,6 +4,8 @@ import SwiftUI
 struct ManualFlightEntryView: View {
     @Environment(LogbookStore.self) private var logbook
     @Environment(FleetStore.self) private var fleet
+    @Environment(AirportStore.self) private var airports
+    @Environment(ProStore.self) private var pro
     @Environment(\.dismiss) private var dismiss
 
     @State private var date = Date()
@@ -53,7 +55,12 @@ struct ManualFlightEntryView: View {
             }
             ToolbarItem(placement: .confirmationAction) {
                 Button("Add") {
-                    logbook.add(makeFlight())
+                    let flight = makeFlight()
+                    logbook.add(flight)
+                    if pro.isPro {
+                        PastFlightPathFinder.shared.findPaths(for: [flight.id], logbook: logbook,
+                                                              fleet: fleet, airports: airports)
+                    }
                     dismiss()
                 }
                 .disabled(tailNumber.trimmingCharacters(in: .whitespaces).isEmpty || hours <= 0)

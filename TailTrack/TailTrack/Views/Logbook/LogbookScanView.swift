@@ -6,6 +6,7 @@ import PhotosUI
 struct LogbookScanView: View {
     @Environment(LogbookStore.self) private var logbook
     @Environment(AirportStore.self) private var airports
+    @Environment(FleetStore.self) private var fleet
     @Environment(\.dismiss) private var dismiss
 
     struct ScannedEntry: Identifiable {
@@ -84,7 +85,7 @@ struct LogbookScanView: View {
                       systemImage: "doc.viewfinder")
             }
         } footer: {
-            Text("Take a straight-on, well-lit photo of the page first. Recognition runs entirely on your iPhone. Review every entry before importing — OCR on handwriting is helpful, not perfect. Afterwards, open any imported flight and tap Find the flight path to pull in its real ADS-B track.")
+            Text("Take a straight-on, well-lit photo of the page first. Recognition runs entirely on your iPhone. Review every entry before importing — OCR on handwriting is helpful, not perfect. After importing, TailTrack looks up each flight's real ADS-B track by itself.")
         }
     }
 
@@ -201,6 +202,7 @@ struct LogbookScanView: View {
     }
 
     private func importEntries() {
+        var imported: [UUID] = []
         for entry in entries where entry.include {
             let flight = Flight(
                 tailNumber: NNumber.normalize(entry.tailNumber),
@@ -213,6 +215,9 @@ struct LogbookScanView: View {
                 notes: "Imported from logbook scan."
             )
             logbook.add(flight)
+            imported.append(flight.id)
         }
+        PastFlightPathFinder.shared.findPaths(for: imported, logbook: logbook,
+                                              fleet: fleet, airports: airports)
     }
 }

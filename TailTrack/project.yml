@@ -67,15 +67,17 @@ targets:
       # To enable Google Sign-In, add under dependencies above:
       #   - package: GoogleSignIn
       #     product: GoogleSignIn
-    # Sign in with Apple requires a PAID Apple Developer account — with a
-    # free personal team the entitlement makes signing (and the whole build)
-    # fail. Building with a paid team? Uncomment this block and re-run
-    # `xcodegen generate` to enable it.
+    # Sign in with Apple and Game Center require a PAID Apple Developer
+    # account — with a free personal team these entitlements make signing
+    # (and the whole build) fail. Building with a paid team (any App Store
+    # or TestFlight build)? Uncomment this block, and TTAppleSignInEnabled
+    # above, then re-run `xcodegen generate`. See LAUNCH.md.
     # entitlements:
     #   path: TailTrack/TailTrack.entitlements
     #   properties:
     #     com.apple.developer.applesignin:
     #       - Default
+    #     com.apple.developer.game-center: true
     settings:
       base:
         DEVELOPMENT_TEAM: ""

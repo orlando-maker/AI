@@ -114,7 +114,7 @@ struct FlightDetailView: View {
     }
 
     /// Typed-in and scanned entries have no path yet; the ADS-B archives
-    /// usually do.
+    /// usually do. Finding it is a Pro feature.
     private var findTrackCard: some View {
         VStack(alignment: .leading, spacing: 10) {
             Label("No flight path yet", systemImage: "point.topleft.down.to.point.bottomright.curvepath")
@@ -122,15 +122,31 @@ struct FlightDetailView: View {
             Text("TailTrack can look up \(flight.tailNumber)'s real ADS-B track for this day, with the map, altitude profile and replay, just like a live-tracked flight.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
-            Button {
-                findingTrack = true
-            } label: {
-                Label("Find the flight path", systemImage: "magnifyingglass")
-                    .font(.callout.weight(.semibold))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 4)
+            if PastFlightPathFinder.shared.isPending(flight.id) {
+                HStack(spacing: 8) {
+                    ProgressView()
+                    Text("Looking for it now…")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
+            } else {
+                Button {
+                    if pro.isPro { findingTrack = true } else { showingPaywall = true }
+                } label: {
+                    Label(pro.isPro ? "Find the flight path" : "Find the flight path with Pro",
+                          systemImage: pro.isPro ? "magnifyingglass" : "lock.fill")
+                        .font(.callout.weight(.semibold))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 4)
+                }
+                .buttonStyle(.borderedProminent)
+                if !pro.isPro, let trial = pro.trialLength {
+                    Text("Pro is free for \(trial).")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity)
+                }
             }
-            .buttonStyle(.borderedProminent)
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)

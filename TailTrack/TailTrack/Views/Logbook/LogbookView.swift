@@ -5,6 +5,8 @@ import SwiftUI
 struct LogbookView: View {
     @Environment(LogbookStore.self) private var logbook
     @Environment(ProStore.self) private var pro
+    @Environment(FleetStore.self) private var fleet
+    @Environment(AirportStore.self) private var airports
 
     @State private var showingPaywall = false
     @State private var addingManualEntry = false
@@ -64,8 +66,11 @@ struct LogbookView: View {
                 }
             }
             .safeAreaInset(edge: .top) {
-                if let issue = logbook.storageIssue {
-                    storageIssueBanner(issue)
+                VStack(spacing: 0) {
+                    if let issue = logbook.storageIssue {
+                        storageIssueBanner(issue)
+                    }
+                    pathFinderBanner
                 }
             }
             .navigationTitle("Logbook")
@@ -84,6 +89,15 @@ struct LogbookView: View {
                         } label: {
                             Label(pro.isPro ? "Scan Logbook Page" : "Scan Logbook Page (Pro)",
                                   systemImage: "doc.viewfinder")
+                        }
+                        if !flightsMissingPaths.isEmpty {
+                            Button {
+                                if pro.isPro { findMissingPaths() } else { showingPaywall = true }
+                            } label: {
+                                Label(pro.isPro ? "Find Missing Flight Paths" : "Find Missing Flight Paths (Pro)",
+                                      systemImage: "point.topleft.down.to.point.bottomright.curvepath")
+                            }
+                            .disabled(PastFlightPathFinder.shared.isRunning)
                         }
                         if !logbook.flights.isEmpty {
                             Button {
@@ -201,6 +215,54 @@ struct LogbookView: View {
     private var statsLabel: some View {
         Label("Pilot Stats — hours, records, top airports", systemImage: "chart.bar.fill")
             .font(.subheadline)
+    }
+
+    /// Typed-in and scanned flights that don't have their ADS-B track yet.
+    private var flightsMissingPaths: [UUID] {
+        logbook.flights.filter { $0.track.count < 2 }.map(\.id)
+    }
+
+    private func findMissingPaths() {
+        PastFlightPathFinder.shared.findPaths(for: flightsMissingPaths, logbook: logbook,
+                                              fleet: fleet, airports: airports)
+    }
+
+    /// Progress of the bulk path lookup, then what it found.
+    @ViewBuilder
+    private var pathFinderBanner: some View {
+        let finder = PastFlightPathFinder.shared
+        if finder.isRunning {
+            HStack(spacing: 10) {
+                ProgressView()
+                Text("Finding flight paths… \(min(finder.done + 1, finder.total)) of \(finder.total)")
+                    .font(.footnote)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .padding(12)
+            .cardSurface(12)
+            .padding(.horizontal)
+            .padding(.bottom, 6)
+        } else if let report = finder.lastReport {
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: "point.topleft.down.to.point.bottomright.curvepath")
+                    .foregroundStyle(Theme.accent)
+                Text(report.summary)
+                    .font(.footnote)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                Button {
+                    finder.dismissReport()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                }
+                .accessibilityLabel("Dismiss")
+            }
+            .padding(12)
+            .cardSurface(12)
+            .padding(.horizontal)
+            .padding(.bottom, 6)
+        }
     }
 
     /// Recovery and save problems stay in front of the pilot until read:

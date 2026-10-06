@@ -110,6 +110,12 @@ pattern session at your home field.
   on-device Vision OCR extracts candidate entries (date, tail, route,
   hours) for review before import. No cloud, no API key. (Typing entries
   in manually is free for everyone.)
+- **Past flight paths** — for typed-in and scanned flights, TailTrack
+  finds the real ADS-B track in the networks' daily archives. It runs by
+  itself after a scan or a new past flight (and from Logbook → + → Find
+  Missing Flight Paths), attaching a path when exactly one flight that day
+  fits the entry; days with several flights let the pilot pick by takeoff
+  time.
 - GPX & CSV export per flight, the **whole logbook as one CSV**
   (Logbook → + → Export Logbook), plus a shareable flight-summary card.
 - Satellite/hybrid live map with realistic terrain.
@@ -120,7 +126,10 @@ pattern session at your home field.
 
 Suggested pricing (configured in `TailTrack.storekit` and App Store
 Connect): **$2.99/month**, **$19.99/year** (highlighted as best value),
-**$49.99 lifetime**. See "Pricing rationale" below.
+**$49.99 lifetime**, with a **1-week free trial** on both subscriptions
+(an introductory offer; the paywall shows it only to Apple IDs that can
+still use it). See "Pricing rationale" below, and [LAUNCH.md](LAUNCH.md)
+for the App Store release checklist.
 
 ---
 

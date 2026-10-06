@@ -23,6 +23,10 @@ final class ProStore {
     private(set) var hasCheckedEntitlement = false
     private(set) var purchaseError: String?
     private(set) var isLoading = false
+    /// Whether this Apple ID can still start the free trial: an
+    /// introductory offer on the subscriptions, set up in App Store
+    /// Connect. Apple allows one per subscription group, ever.
+    private(set) var isTrialEligible = false
 
     #if DEBUG
     /// Simulator/local override so Pro screens can be exercised without
@@ -65,6 +69,44 @@ final class ProStore {
         } catch {
             purchaseError = "Couldn't load products: \(error.localizedDescription)"
         }
+        await refreshTrialEligibility()
+    }
+
+    func refreshTrialEligibility() async {
+        guard let subscription = products.compactMap(\.subscription).first else {
+            isTrialEligible = false
+            return
+        }
+        isTrialEligible = await subscription.isEligibleForIntroOffer
+    }
+
+    /// The free trial a product starts with, while this Apple ID can
+    /// still have one.
+    func freeTrial(for product: Product) -> Product.SubscriptionOffer? {
+        guard isTrialEligible,
+              let offer = product.subscription?.introductoryOffer,
+              offer.paymentMode == .freeTrial else { return nil }
+        return offer
+    }
+
+    /// The free trial on offer ("7 days"), for paywall and upsell copy;
+    /// nil when this Apple ID can't have one.
+    var trialLength: String? {
+        for product in products {
+            if let offer = freeTrial(for: product) { return Self.length(of: offer) }
+        }
+        return nil
+    }
+
+    static func length(of offer: Product.SubscriptionOffer) -> String {
+        let count = offer.period.value * max(offer.periodCount, 1)
+        switch offer.period.unit {
+        case .day: return count == 1 ? "1 day" : "\(count) days"
+        case .week: return "\(count * 7) days"
+        case .month: return count == 1 ? "1 month" : "\(count) months"
+        case .year: return count == 1 ? "1 year" : "\(count) years"
+        @unknown default: return "\(count) \(offer.period.unit)"
+        }
     }
 
     func refreshEntitlement() async {
@@ -81,6 +123,7 @@ final class ProStore {
         #endif
         isPro = entitled
         hasCheckedEntitlement = true
+        await refreshTrialEligibility()
     }
 
     func purchase(_ product: Product) async {
