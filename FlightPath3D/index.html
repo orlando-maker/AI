@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Flight Path 3D</title>
+<style>
+  :root { --bg:#f6f5f1; --fg:#1d1d1f; --card:#fff; --line:#ddd; --accent:#1f5fd6; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#111; --fg:#eee; --card:#1c1c1e; --line:#333; --accent:#5b8cff; } }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:system-ui,sans-serif; background:var(--bg); color:var(--fg); }
+  main { max-width:900px; margin:0 auto; padding:16px; }
+  h1 { margin:.2em 0; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; margin:12px 0; }
+  label { display:block; margin:8px 0 4px; font-weight:600; font-size:14px; }
+  input, select, button { font:inherit; padding:8px 10px; border-radius:8px; border:1px solid var(--line); background:var(--bg); color:var(--fg); }
+  button { background:var(--accent); color:#fff; border:none; cursor:pointer; margin:6px 6px 0 0; }
+  .row { display:flex; gap:12px; flex-wrap:wrap; }
+  .row > div { flex:1; min-width:140px; }
+  #flights button { display:block; width:100%; text-align:left; background:var(--bg); color:var(--fg); border:1px solid var(--line); }
+  #view { width:100%; height:420px; border-radius:12px; overflow:hidden; background:#9aa894; }
+  #status { font-size:14px; opacity:.8; white-space:pre-wrap; }
+  small { opacity:.7; }
+</style>
+</head>
+<body>
+<main>
+  <h1>✈️ Flight Path 3D</h1>
+  <small>Tail number + date → ADS-B track → 3D terrain model (STL) you can print or send to a print service.</small>
+
+  <div class="card">
+    <h3>1. Get the track</h3>
+    <div class="row">
+      <div><label>Tail number</label><input id="tail" value="N906ME"></div>
+      <div><label>Date (UTC)</label><input id="date" type="date"></div>
+    </div>
+    <button id="find">Find flights (OpenSky)</button>
+    <div id="flights"></div>
+    <label>…or upload a track file (ForeFlight / Garmin / FlightAware KML, GPX, or CSV)</label>
+    <input type="file" id="file" accept=".kml,.gpx,.csv,.txt">
+    <div class="row">
+      <div><label>CSV altitude unit</label><select id="altunit"><option value="ft">feet</option><option value="m">meters</option></select></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>2. Model settings</h3>
+    <div class="row">
+      <div><label>Model size (mm)</label><input id="size" type="number" value="152"></div>
+      <div><label>Terrain exaggeration</label><input id="tex" type="number" value="2" step="0.5"></div>
+      <div><label>Altitude exaggeration</label><input id="aex" type="number" value="1" step="0.5"></div>
+      <div><label>Path width (mm)</label><input id="pw" type="number" value="1.6" step="0.2"></div>
+      <div><label>Margin around path (%)</label><input id="pad" type="number" value="15"></div>
+      <div><label>Path style</label><select id="style">
+        <option value="curtain">Curtain down to ground (easy to print)</option>
+        <option value="flat">Flat on terrain (like the photo)</option>
+        <option value="float">Floating at altitude</option></select></div>
+    </div>
+    <button id="build" disabled>Build 3D model</button>
+    <button id="dlT" disabled>Download terrain.stl</button>
+    <button id="dlP" disabled>Download path.stl</button>
+    <button id="dlA" disabled>Download combined.stl</button>
+    <p id="status">Waiting for a track…</p>
+  </div>
+
+  <div id="view"></div>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const status = m => $('status').textContent = m;
+$('date').value = new Date(Date.now() - 864e5).toISOString().slice(0, 10);
+let track = null, meshes = null;
+
+// ---------- US N-number -> ICAO 24-bit hex ----------
+const CH = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+const SUF = 601, B4 = 35, B3 = 10 * B4 + SUF, B2 = 10 * B3 + SUF, B1 = 10 * B2 + SUF;
+const sufOff = s => !s.length ? 0 : 25 * CH.indexOf(s[0]) + 1 + (s.length > 1 ? CH.indexOf(s[1]) + 1 : 0);
+function nToIcao(n) {
+  n = n.toUpperCase().replace(/^N/, '');
+  if (!/^[1-9][0-9A-Z]{0,4}$/.test(n)) throw Error('Not a valid US N-number');
+  let o = 0xA00001 + (+n[0] - 1) * B1;
+  const sizes = [B2, B3, B4];
+  for (let i = 1; i < n.length; i++) {
+    const c = n[i];
+    if (i === 4) { o += CH.includes(c) ? 1 + CH.indexOf(c) : +c + 25; break; }
+    if (CH.includes(c)) { o += sufOff(n.slice(i, i + 2)); break; }
+    o += +c * sizes[i - 1] + SUF;
+  }
+  return o.toString(16);
+}
+
+// ---------- OpenSky (free, open) ----------
+$('find').onclick = async () => {
+  try {
+    const hex = nToIcao($('tail').value.trim());
+    const t0 = Date.parse($('date').value + 'T00:00:00Z') / 1000;
+    status(`ICAO hex ${hex}. Asking OpenSky…`);
+    const r = await fetch(`https://opensky-network.org/api/flights/aircraft?icao24=${hex}&begin=${t0}&end=${t0 + 86400}`);
+    if (!r.ok) throw Error(`OpenSky said ${r.status}. No coverage that day, or history needs a free OpenSky login — use the file upload instead.`);
+    const fl = await r.json();
+    $('flights').innerHTML = '<label>Pick a flight:</label>';
+    fl.forEach(f => {
+      const b = document.createElement('button');
+      const tm = s => new Date(s * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      b.textContent = `${tm(f.firstSeen)} → ${tm(f.lastSeen)}   ${f.estDepartureAirport || '?'} → ${f.estArrivalAirport || '?'}`;
+      b.onclick = () => loadTrack(hex, f.firstSeen);
+      $('flights').append(b);
+    });
+    status(fl.length ? `${fl.length} flight(s) found.` : 'No flights found that day.');
+  } catch (e) { status('⚠️ ' + e.message); }
+};
+async function loadTrack(hex, time) {
+  status('Downloading track…');
+  try {
+    const r = await fetch(`https://opensky-network.org/api/tracks/all?icao24=${hex}&time=${time}`);
+    if (!r.ok) throw Error('Track request failed: ' + r.status);
+    const j = await r.json();
+    setTrack(j.path.filter(p => p[1] != null).map(p => ({ lat: p[1], lon: p[2], alt: p[3] || 0 })));
+  } catch (e) { status('⚠️ ' + e.message); }
+}
+
+// ---------- File upload: KML / GPX / CSV ----------
+$('file').onchange = async e => {
+  const txt = await e.target.files[0].text(), pts = [];
+  if (/<gpx/i.test(txt)) {
+    const d = new DOMParser().parseFromString(txt, 'text/xml');
+    for (const p of d.getElementsByTagName('trkpt'))
+      pts.push({ lat: +p.getAttribute('lat'), lon: +p.getAttribute('lon'), alt: +(p.getElementsByTagName('ele')[0]?.textContent || 0) });
+  } else if (/<kml/i.test(txt)) {
+    const gx = [...txt.matchAll(/<gx:coord>([^<]+)<\/gx:coord>/g)];
+    if (gx.length) gx.forEach(m => { const [lon, lat, alt] = m[1].trim().split(/\s+/).map(Number); pts.push({ lat, lon, alt: alt || 0 }); });
+    else [...txt.matchAll(/<coordinates>([^<]+)<\/coordinates>/g)].forEach(m =>
+      m[1].trim().split(/\s+/).forEach(c => { const [lon, lat, alt] = c.split(',').map(Number); pts.push({ lat, lon, alt: alt || 0 }); }));
+  } else {
+    const rows = txt.trim().split(/\r?\n/).map(l => l.split(/[,;\t]/));
+    const h = rows[0].map(s => s.toLowerCase());
+    const fi = re => h.findIndex(s => re.test(s));
+    const la = fi(/lat/), lo = fi(/lon|lng/), al = fi(/alt|ele/);
+    const k = $('altunit').value === 'ft' ? 0.3048 : 1;
+    rows.slice(1).forEach(r => { if (r[la] && r[lo]) pts.push({ lat: +r[la], lon: +r[lo], alt: (+r[al] || 0) * k }); });
+  }
+  setTrack(pts.filter(p => isFinite(p.lat) && isFinite(p.lon)));
+};
+
+function setTrack(pts) {
+  if (pts.length < 2) return status('⚠️ Not enough points in that track.');
+  track = pts;
+  $('build').disabled = false;
+  status(`Loaded ${pts.length} points. Max altitude ${Math.round(Math.max(...pts.map(p => p.alt)) / 0.3048)} ft. Click “Build 3D model”.`);
+}
+
+// ---------- Terrain (free AWS Terrain Tiles, no key) ----------
+const merc = (lat, lon) => [lon * Math.PI / 180 * 6378137, Math.log(Math.tan(Math.PI / 4 + lat * Math.PI / 360)) * 6378137];
+const W = 2 * Math.PI * 6378137;
+const loadImg = src => new Promise((ok, no) => { const i = new Image(); i.crossOrigin = 'anonymous'; i.onload = () => ok(i); i.onerror = no; i.src = src; });
+
+async function terrainGrid(minx, miny, span, N) {
+  let z = 14;
+  while (z > 2 && span / (W / 2 ** z) > 6) z--;
+  const tile = x => (x + W / 2) / W * 2 ** z, tileY = y => (W / 2 - y) / W * 2 ** z;
+  const tx0 = Math.floor(tile(minx)), tx1 = Math.floor(tile(minx + span));
+  const ty0 = Math.floor(tileY(miny + span)), ty1 = Math.floor(tileY(miny));
+  const cv = document.createElement('canvas');
+  cv.width = (tx1 - tx0 + 1) * 256; cv.height = (ty1 - ty0 + 1) * 256;
+  const ctx = cv.getContext('2d', { willReadFrequently: true });
+  const jobs = [];
+  for (let x = tx0; x <= tx1; x++) for (let y = ty0; y <= ty1; y++)
+    jobs.push(loadImg(`https://s3.amazonaws.com/elevation-tiles-prod/terrarium/${z}/${x}/${y}.png`)
+      .then(img => ctx.drawImage(img, (x - tx0) * 256, (y - ty0) * 256)));
+  await Promise.all(jobs);
+  const px = ctx.getImageData(0, 0, cv.width, cv.height).data;
+  const g = new Float32Array(N * N);
+  for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+    const mx = minx + span * i / (N - 1), my = miny + span * j / (N - 1);
+    const X = Math.min(cv.width - 1, Math.floor((tile(mx) - tx0) * 256));
+    const Y = Math.min(cv.height - 1, Math.floor((tileY(my) - ty0) * 256));
+    const k = (Y * cv.width + X) * 4;
+    g[j * N + i] = px[k] * 256 + px[k + 1] + px[k + 2] / 256 - 32768;
+  }
+  return g;
+}
+
+// ---------- Build meshes ----------
+$('build').onclick = async () => {
+  try {
+    status('Fetching terrain…');
+    const S = +$('size').value, N = 220, base = 3;
+    const m = track.map(p => merc(p.lat, p.lon));
+    const xs = m.map(p => p[0]), ys = m.map(p => p[1]);
+    let span = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys));
+    span *= 1 + 2 * $('pad').value / 100;
+    const cx = (Math.max(...xs) + Math.min(...xs)) / 2, cy = (Math.max(...ys) + Math.min(...ys)) / 2;
+    const minx = cx - span / 2, miny = cy - span / 2;
+    const grid = await terrainGrid(minx, miny, span, N);
+    // mercator stretches distances; correct with latitude so heights stay true
+    const latScale = Math.cos(track[0].lat * Math.PI / 180);
+    const mmPerM = S / (span * latScale);
+    const tz = e => base + Math.max(0, e) * mmPerM * +$('tex').value;
+    const hAt = (x, y) => { // x,y in mm
+      const i = Math.max(0, Math.min(N - 1, Math.round(x / S * (N - 1))));
+      const j = Math.max(0, Math.min(N - 1, Math.round(y / S * (N - 1))));
+      return tz(grid[j * N + i]);
+    };
+
+    // terrain solid
+    const T = [];
+    const v = (i, j) => [S * i / (N - 1), S * j / (N - 1), tz(grid[j * N + i])];
+    for (let j = 0; j < N - 1; j++) for (let i = 0; i < N - 1; i++) {
+      const a = v(i, j), b = v(i + 1, j), c = v(i + 1, j + 1), d = v(i, j + 1);
+      T.push(a, b, c, a, c, d);
+    }
+    const edge = (p, q) => { const p0 = [p[0], p[1], 0], q0 = [q[0], q[1], 0]; T.push(p, p0, q0, p, q0, q); };
+    for (let k = 0; k < N - 1; k++) {
+      edge(v(k + 1, 0), v(k, 0)); edge(v(N - 1, k + 1), v(N - 1, k));
+      edge(v(k, N - 1), v(k + 1, N - 1)); edge(v(0, k), v(0, k + 1));
+    }
+    T.push([0, 0, 0], [S, S, 0], [S, 0, 0], [0, 0, 0], [0, S, 0], [S, S, 0]);
+
+    // path: thin down-sampled list of points
+    const step = Math.max(1, Math.floor(track.length / 2000));
+    const style = $('style').value, w = +$('pw').value / 2;
+    const pts = [];
+    for (let k = 0; k < track.length; k += step) {
+      const x = (m[k][0] - minx) / span * S, y = (m[k][1] - miny) / span * S, g = hAt(x, y);
+      const z = style === 'flat' ? g + 1 : Math.max(g + 1, base + track[k].alt * mmPerM * +$('aex').value);
+      pts.push([x, y, z, g]);
+    }
+    const P = [];
+    for (let k = 0; k < pts.length - 1; k++) {
+      const [x1, y1, z1, g1] = pts[k], [x2, y2, z2, g2] = pts[k + 1];
+      const L = Math.hypot(x2 - x1, y2 - y1) || 1e-6, nx = -(y2 - y1) / L * w, ny = (x2 - x1) / L * w;
+      const top1 = z1 + 0.6, top2 = z2 + 0.6;
+      const bot1 = style === 'curtain' ? Math.min(g1, z1) - 0.5 : z1 - 0.6;
+      const bot2 = style === 'curtain' ? Math.min(g2, z2) - 0.5 : z2 - 0.6;
+      const A = [x1 + nx, y1 + ny], B = [x1 - nx, y1 - ny], C = [x2 - nx, y2 - ny], D = [x2 + nx, y2 + ny];
+      const c = [[...A, bot1], [...B, bot1], [...C, bot2], [...D, bot2], [...A, top1], [...B, top1], [...C, top2], [...D, top2]];
+      [[0, 2, 1], [0, 3, 2], [4, 5, 6], [4, 6, 7], [0, 1, 5], [0, 5, 4], [1, 2, 6], [1, 6, 5], [2, 3, 7], [2, 7, 6], [3, 0, 4], [3, 4, 7]]
+        .forEach(t => t.forEach(i => P.push(c[i])));
+    }
+    meshes = { T, P };
+    show(T, P, S, grid, N);
+    ['dlT', 'dlP', 'dlA'].forEach(id => $(id).disabled = false);
+    status(`Done! ${S} mm square. Print terrain in green, path in yellow (or paint the water blue).`);
+  } catch (e) { status('⚠️ ' + e.message); console.error(e); }
+};
+
+// ---------- STL export ----------
+function stl(tris, name) {
+  const n = tris.length / 3, buf = new ArrayBuffer(84 + n * 50), dv = new DataView(buf);
+  dv.setUint32(80, n, true);
+  for (let t = 0; t < n; t++) {
+    const o = 84 + t * 50;
+    for (let k = 0; k < 3; k++) for (let a = 0; a < 3; a++) dv.setFloat32(o + 12 + k * 12 + a * 4, tris[t * 3 + k][a], true);
+  }
+  const l = document.createElement('a');
+  l.href = URL.createObjectURL(new Blob([buf], { type: 'model/stl' }));
+  l.download = name; l.click();
+}
+$('dlT').onclick = () => stl(meshes.T, 'terrain.stl');
+$('dlP').onclick = () => stl(meshes.P, 'path.stl');
+$('dlA').onclick = () => stl(meshes.T.concat(meshes.P), 'combined.stl');
+
+// ---------- 3D preview ----------
+let renderer, scene, camera, controls;
+function show(T, P, S, grid, N) {
+  const el = $('view');
+  if (!renderer) {
+    renderer = new THREE.WebGLRenderer({ antialias: true });
+    el.append(renderer.domElement);
+    camera = new THREE.PerspectiveCamera(40, 1, 1, 5000);
+    controls = new THREE.OrbitControls(camera, renderer.domElement);
+    (function loop() { requestAnimationFrame(loop); renderer.render(scene, camera); })();
+  }
+  renderer.setSize(el.clientWidth, el.clientHeight);
+  camera.aspect = el.clientWidth / el.clientHeight; camera.updateProjectionMatrix();
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x9aa894);
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 0.7));
+  const sun = new THREE.DirectionalLight(0xffffff, 0.8); sun.position.set(-1, -1, 2); scene.add(sun);
+  const geo = tris => { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(tris.flat(), 3)); g.computeVertexNormals(); return g; };
+  // color water blue, land green
+  const tg = geo(T), pos = tg.attributes.position, col = [];
+  for (let i = 0; i < pos.count; i++) pos.getZ(i) <= 3.01 && pos.getZ(i) > 0.01 ? col.push(.1, .4, .95) : col.push(.33, .45, .3);
+  tg.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  const tm = new THREE.Mesh(tg, new THREE.MeshLambertMaterial({ vertexColors: true }));
+  const pm = new THREE.Mesh(geo(P), new THREE.MeshLambertMaterial({ color: 0xe8f03a }));
+  [tm, pm].forEach(o => { o.position.set(-S / 2, -S / 2, 0); scene.add(o); });
+  camera.position.set(0, -S * 1.2, S * 1.1); camera.up.set(0, 0, 1);
+  controls.target.set(0, 0, 0); controls.update();
+}
+</script>
+</body>
+</html>
