@@ -37,7 +37,8 @@ enum LegalDocuments {
     third-party community networks and open datasets (adsb.lol, \
     OurAirports). Coverage is incomplete and data may be \
     delayed, inaccurate, or unavailable. We make no guarantee of accuracy, \
-    completeness, or availability.
+    completeness, or availability. Third-party data is used subject to \
+    each provider's own terms and licenses (see Acknowledgements).
 
     3. YOUR RESPONSIBILITIES
     You agree to use the app lawfully, to track only aircraft you are \
@@ -98,8 +99,8 @@ enum LegalDocuments {
     TAILTRACK — PRIVACY POLICY
     Effective date: August 22, 2026
 
-    Short version: your data stays on your device. TailTrack has no \
-    accounts server, no ads, no analytics, and no tracking SDKs.
+    Short version: your data stays on your device. TailTrack does not \
+    operate any servers that store user accounts or data, and has no ads, no analytics, and no tracking SDKs.
 
     1. DATA STORED ON YOUR DEVICE
     Your pilot profile, aircraft, logbook, training progress, and photos \
@@ -164,7 +165,8 @@ enum LegalDocuments {
 
     • adsb.lol — community-run ADS-B network. Live positions and flight \
     history are © adsb.lol contributors, available under the Open \
-    Database License (opendatacommons.org/licenses/odbl).
+    Database License (opendatacommons.org/licenses/odbl). TailTrack does \
+    not use OpenSky Network or adsb.fi data.
     • OurAirports — worldwide airport database and radio frequencies, \
     dedicated to the public domain by its contributors (ourairports.com).
     • Aviation Weather Center — METAR and TAF weather from the FAA and \
