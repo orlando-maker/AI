@@ -5,6 +5,10 @@ struct RootView: View {
     @Environment(AirportStore.self) private var airports
     @Environment(ProfileStore.self) private var profileStore
     @Environment(ProStore.self) private var pro
+    @Environment(FleetStore.self) private var fleet
+    @Environment(LogbookStore.self) private var logbook
+    @Environment(FlightTracker.self) private var tracker
+    @Environment(RadioPlayer.self) private var radio
     @AppStorage(LegalDocuments.acceptedVersionKey) private var acceptedLegalVersion = 0
     @AppStorage("hasCompletedAccountSetup") private var hasCompletedAccountSetup = false
     @AppStorage(AppearanceSetting.storageKey) private var appearanceRaw = AppearanceSetting.system.rawValue
@@ -51,16 +55,27 @@ struct RootView: View {
             get: { currentGate },
             set: { _ in }  // dismissal is driven by the gate conditions clearing
         )) { gate in
-            switch gate {
-            case .terms:
-                TermsGateView {
-                    acceptedLegalVersion = LegalDocuments.version
-                }
-            case .account:
-                CreateAccountView {
-                    hasCompletedAccountSetup = true
+            // Full-screen covers don't reliably inherit @Observable
+            // environment objects on every iOS version, so hand them over.
+            Group {
+                switch gate {
+                case .terms:
+                    TermsGateView {
+                        acceptedLegalVersion = LegalDocuments.version
+                    }
+                case .account:
+                    CreateAccountView {
+                        hasCompletedAccountSetup = true
+                    }
                 }
             }
+            .environment(airports)
+            .environment(profileStore)
+            .environment(pro)
+            .environment(fleet)
+            .environment(logbook)
+            .environment(tracker)
+            .environment(radio)
         }
         .task {
             // Fetch the full worldwide airport database (every US field down
