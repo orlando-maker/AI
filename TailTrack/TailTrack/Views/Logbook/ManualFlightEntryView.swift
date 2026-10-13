@@ -1,6 +1,11 @@
 import SwiftUI
 
 /// Type in a past flight — the free way to bring your paper logbook over.
+private struct MatchTarget: Identifiable {
+    let flight: Flight
+    var id: UUID { flight.id }
+}
+
 struct ManualFlightEntryView: View {
     @Environment(LogbookStore.self) private var logbook
     @Environment(FleetStore.self) private var fleet
@@ -17,6 +22,9 @@ struct ManualFlightEntryView: View {
     @State private var pickingDeparture = false
     @State private var pickingDestination = false
     @State private var pickingVia = false
+    /// The flight just added, shown in the path picker so the pilot
+    /// confirms which real flight it was (even when there is only one).
+    @State private var matchingFlight: Flight?
     @State private var viaAirports: [Airport] = []
     @State private var prefilled = false
     /// Exact time is optional: most paper logbooks only have the date.
@@ -86,10 +94,10 @@ struct ManualFlightEntryView: View {
                     let flight = makeFlight()
                     logbook.add(flight)
                     if pro.isPro {
-                        PastFlightPathFinder.shared.findPaths(for: [flight.id], logbook: logbook,
-                                                              fleet: fleet, airports: airports)
+                        matchingFlight = flight
+                    } else {
+                        dismiss()
                     }
-                    dismiss()
                 }
                 .disabled(tailNumber.trimmingCharacters(in: .whitespaces).isEmpty || hours <= 0)
             }
@@ -99,6 +107,12 @@ struct ManualFlightEntryView: View {
         }
         .sheet(isPresented: $pickingDestination) {
             AirportPickerView(title: "Destination") { destination = $0 }
+        }
+        .sheet(item: Binding(
+            get: { matchingFlight.map { MatchTarget(flight: $0) } },
+            set: { if $0 == nil { matchingFlight = nil } }
+        ), onDismiss: { dismiss() }) { target in
+            HistoricalTrackMatchView(flight: target.flight)
         }
         .sheet(isPresented: $pickingVia) {
             AirportPickerView(title: "Stop Along the Way") { airport in
