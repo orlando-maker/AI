@@ -10,6 +10,7 @@ struct FlightReplaySection: View {
 
     @State private var scrubIndex: Double = 0
     @State private var isPlaying = false
+    @State private var fullScreen = false
 
     private var track: [TrackPoint] { flight.track }
 
@@ -32,12 +33,85 @@ struct FlightReplaySection: View {
             .frame(height: 300)
             .clipShape(RoundedRectangle(cornerRadius: 22))
             .shadow(color: .black.opacity(0.15), radius: 8, y: 4)
+            .overlay(alignment: .topTrailing) {
+                Button {
+                    fullScreen = true
+                } label: {
+                    Image(systemName: "arrow.up.left.and.arrow.down.right")
+                        .font(.footnote.weight(.semibold))
+                        .padding(9)
+                        .floatingGlass(Circle())
+                }
+                .buttonStyle(.pressableControl)
+                .foregroundStyle(.primary)
+                .padding(10)
+                .accessibilityLabel("Full screen")
+            }
+            .fullScreenCover(isPresented: $fullScreen) { fullScreenReplay }
 
             if track.count > 5 {
                 replayControls
                 AltitudeProfileView(track: track, scrubIndex: $scrubIndex)
                     .frame(height: 120)
             }
+        }
+    }
+
+    /// Edge-to-edge map with the same scrubber floating over it.
+    private var fullScreenReplay: some View {
+        ZStack {
+            FlightMapView(
+                track: track,
+                departure: flight.departure,
+                destination: flight.destination,
+                currentPosition: currentPoint?.coordinate,
+                currentTrackDeg: currentPoint?.trackDeg,
+                tailNumber: flight.tailNumber,
+                via: flight.via ?? []
+            )
+            .ignoresSafeArea()
+
+            VStack {
+                HStack {
+                    Button {
+                        fullScreen = false
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.body.weight(.semibold))
+                            .padding(10)
+                            .floatingGlass(Circle())
+                    }
+                    .buttonStyle(.pressableControl)
+                    .foregroundStyle(.primary)
+                    Spacer()
+                }
+                Spacer()
+                if track.count > 5 {
+                    VStack(spacing: 8) {
+                        HStack(spacing: 12) {
+                            Button {
+                                isPlaying.toggle()
+                            } label: {
+                                Image(systemName: isPlaying ? "pause.circle.fill" : "play.circle.fill")
+                                    .font(.system(size: 34))
+                                    .foregroundStyle(.tint)
+                            }
+                            .buttonStyle(.pressableControl)
+                            Text(currentPoint.map { Format.clockTime($0.time) } ?? "—")
+                                .font(.subheadline.weight(.bold))
+                                .monospacedDigit()
+                            Spacer()
+                            replayStat("ALT", currentPoint?.altitudeFt.map(Format.feet)
+                                       ?? (currentPoint?.onGround == true ? "Ground" : "—"))
+                            replayStat("GS", currentPoint?.groundSpeedKt.map(Format.knots) ?? "—")
+                        }
+                        Slider(value: $scrubIndex, in: 0...Double(max(1, track.count - 1)))
+                    }
+                    .padding(14)
+                    .floatingGlass(RoundedRectangle(cornerRadius: 16))
+                }
+            }
+            .padding()
         }
     }
 

@@ -61,9 +61,27 @@ final class AirportStore {
     // MARK: - Lookup
 
     /// Exact lookup by ICAO/GPS ident (KSQL) or IATA code (SQL → best effort).
+    /// Airports renamed (and re-coded) before the free database catches up:
+    /// searching the new code finds the airport under its real FAA ident.
+    private static let renamedCodes: [String: String] = [
+        "KDJT": "KPBI", "DJT": "KPBI",   // Palm Beach International → President Donald J. Trump International
+    ]
+
+    /// Fields in the countries pilots here fly in sort first, so a search
+    /// for "SAM" doesn't lead with an airport on another continent.
+    private static let homeRegions: Set<String> = [
+        "US", "CA", "MX", "GU", "MP", "PR", "VI", "BS", "KY", "JM", "DO", "BM", "TC",
+    ]
+
+    private static func regionRank(_ airport: Airport) -> Int {
+        let country = airport.region?.split(separator: "-").first.map(String.init) ?? ""
+        return homeRegions.contains(country) ? 0 : 1
+    }
+
     func lookup(_ code: String) -> Airport? {
         let c = code.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
         guard !c.isEmpty else { return nil }
+        if let target = Self.renamedCodes[c], let hit = byIdent[target] { return hit }
         if let hit = byIdent[c] { return hit }
         return airports.first { $0.iata == c }
     }
@@ -81,6 +99,7 @@ final class AirportStore {
             guard let airport, exactIdents.insert(airport.ident.uppercased()).inserted else { return }
             exact.append(airport)
         }
+        if let target = Self.renamedCodes[q] { addExact(byIdent[target]) }
         addExact(byIdent[q])
         addExact(byIata[q])
         if q.count == 3 { addExact(byIdent["K" + q]) }   // "SQL" → KSQL habit
@@ -107,8 +126,12 @@ final class AirportStore {
             default: return 2
             }
         }
-        identPrefix.sort { ($0.ident.count, sizeRank($0)) < ($1.ident.count, sizeRank($1)) }
-        other.sort { sizeRank($0) < sizeRank($1) }
+        identPrefix.sort {
+            ($0.ident.count, Self.regionRank($0), sizeRank($0)) < ($1.ident.count, Self.regionRank($1), sizeRank($1))
+        }
+        other.sort {
+            (Self.regionRank($0), sizeRank($0)) < (Self.regionRank($1), sizeRank($1))
+        }
         return Array((exact + identPrefix + other).prefix(limit))
     }
 

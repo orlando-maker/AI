@@ -60,12 +60,32 @@ final class LogbookStore {
     }
 
     func delete(at offsets: IndexSet) {
+        offsets.map { flights[$0] }.forEach { Self.deletePhotos(of: $0) }
         flights.remove(atOffsets: offsets)
         save()
     }
 
     func delete(_ flight: Flight) {
+        Self.deletePhotos(of: flight)
         flights.removeAll { $0.id == flight.id }
+        save()
+    }
+
+    private static func deletePhotos(of flight: Flight) {
+        (flight.photoFileNames ?? []).forEach { ImageStore.delete($0) }
+    }
+
+    func addPhoto(to flightID: UUID, imageData: Data) {
+        guard let idx = flights.firstIndex(where: { $0.id == flightID }),
+              let name = ImageStore.save(imageData) else { return }
+        flights[idx].photoFileNames = (flights[idx].photoFileNames ?? []) + [name]
+        save()
+    }
+
+    func removePhoto(from flightID: UUID, fileName: String) {
+        guard let idx = flights.firstIndex(where: { $0.id == flightID }) else { return }
+        flights[idx].photoFileNames?.removeAll { $0 == fileName }
+        ImageStore.delete(fileName)
         save()
     }
 

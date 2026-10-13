@@ -16,6 +16,8 @@ struct ManualFlightEntryView: View {
     @State private var notes = ""
     @State private var pickingDeparture = false
     @State private var pickingDestination = false
+    @State private var pickingVia = false
+    @State private var viaAirports: [Airport] = []
     @State private var prefilled = false
     /// Exact time is optional: most paper logbooks only have the date.
     @State private var knowsTime = false
@@ -34,7 +36,27 @@ struct ManualFlightEntryView: View {
                     .textInputAutocapitalization(.characters)
                     .autocorrectionDisabled()
                 airportRow("From", airport: departure) { pickingDeparture = true }
+                ForEach(viaAirports, id: \.ident) { stop in
+                    HStack {
+                        Text("Stop")
+                        Spacer()
+                        Text(stop.ident).foregroundStyle(.secondary)
+                        Button {
+                            viaAirports.removeAll { $0.ident == stop.ident }
+                        } label: {
+                            Image(systemName: "minus.circle.fill").foregroundStyle(.red)
+                        }
+                        .buttonStyle(.borderless)
+                        .accessibilityLabel("Remove stop \(stop.ident)")
+                    }
+                }
                 airportRow("To", airport: destination) { pickingDestination = true }
+                Button {
+                    pickingVia = true
+                } label: {
+                    Label("Add a stop along the way", systemImage: "plus.circle")
+                        .font(.callout)
+                }
                 HStack {
                     Text("Flight time")
                     Spacer()
@@ -78,6 +100,13 @@ struct ManualFlightEntryView: View {
         .sheet(isPresented: $pickingDestination) {
             AirportPickerView(title: "Destination") { destination = $0 }
         }
+        .sheet(isPresented: $pickingVia) {
+            AirportPickerView(title: "Stop Along the Way") { airport in
+                if !viaAirports.contains(where: { $0.ident == airport.ident }) {
+                    viaAirports.append(airport)
+                }
+            }
+        }
         .onAppear {
             if !prefilled {
                 prefilled = true
@@ -111,6 +140,7 @@ struct ManualFlightEntryView: View {
             typeCode: type,
             departure: departure,
             destination: destination,
+            via: viaAirports.isEmpty ? nil : viaAirports,
             startedTracking: start,
             takeoffTime: start,
             landingTime: start.addingTimeInterval(hours * 3600),

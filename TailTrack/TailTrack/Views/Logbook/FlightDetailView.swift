@@ -1,4 +1,5 @@
 import SwiftUI
+import PhotosUI
 import CoreLocation
 
 /// A saved flight: route summary, map of the flown track, stats, notes,
@@ -27,6 +28,7 @@ struct FlightDetailView: View {
     @State private var shareCardURL: URL?
     @State private var suggestedLandings = 0
     @State private var confirmedLandings: Int?
+    @State private var photoSelection: [PhotosPickerItem] = []
 
     var body: some View {
         ScrollView {
@@ -50,6 +52,7 @@ struct FlightDetailView: View {
                 if let radioLog = flight.radioLog, !radioLog.isEmpty {
                     radioLogCard(radioLog)
                 }
+                photosCard
                 notesCard
                 exportCard
             }
@@ -252,6 +255,61 @@ struct FlightDetailView: View {
             }
             if let planned = flight.plannedDestinationIdent {
                 StatTile(label: "Planned dest", value: planned)
+            }
+        }
+    }
+
+    private var photosCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("Photos")
+                    .font(.headline)
+                Spacer()
+                PhotosPicker(selection: $photoSelection, maxSelectionCount: 6, matching: .images) {
+                    Label("Add", systemImage: "photo.badge.plus")
+                        .font(.callout.weight(.semibold))
+                }
+            }
+            let names = flight.photoFileNames ?? []
+            if names.isEmpty {
+                Text("Add photos from the flight: the view, the airplane, the sunset.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 10) {
+                        ForEach(names, id: \.self) { name in
+                            if let image = ImageStore.load(name) {
+                                Image(uiImage: image)
+                                    .resizable()
+                                    .scaledToFill()
+                                    .frame(width: 130, height: 130)
+                                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                                    .contextMenu {
+                                        Button(role: .destructive) {
+                                            logbook.removePhoto(from: flight.id, fileName: name)
+                                        } label: {
+                                            Label("Remove Photo", systemImage: "trash")
+                                        }
+                                    }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .cardSurface(16)
+        .onChange(of: photoSelection) { _, items in
+            guard !items.isEmpty else { return }
+            let flightID = flight.id
+            Task {
+                for item in items {
+                    let data = try? await item.loadTransferable(type: Data.self)
+                    if let data { logbook.addPhoto(to: flightID, imageData: data) }
+                }
+                photoSelection = []
             }
         }
     }

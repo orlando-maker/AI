@@ -47,6 +47,9 @@ struct Flight: Codable, Identifiable {
     /// Frequencies, clearances, squawk codes and ATIS heard on this flight.
     /// Optional so flights saved before the radio log existed still decode.
     var radioLog: [RadioLogEntry]?
+    /// Photos attached to this flight (ImageStore file names). Optional so
+    /// flights saved before photos existed still decode.
+    var photoFileNames: [String]?
 
     // MARK: - Derived stats
 
