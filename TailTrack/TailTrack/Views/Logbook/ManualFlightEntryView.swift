@@ -17,13 +17,19 @@ struct ManualFlightEntryView: View {
     @State private var pickingDeparture = false
     @State private var pickingDestination = false
     @State private var prefilled = false
+    /// Exact time is optional: most paper logbooks only have the date.
+    @State private var knowsTime = false
 
     private var hours: Double { Double(hoursText) ?? 0 }
 
     var body: some View {
         Form {
             Section("Flight") {
-                DatePicker("Date", selection: $date)
+                DatePicker("Date", selection: $date, displayedComponents: .date)
+                Toggle("I know my takeoff time", isOn: $knowsTime.animation())
+                if knowsTime {
+                    DatePicker("Takeoff", selection: $date, displayedComponents: .hourAndMinute)
+                }
                 TextField("Tail number", text: $tailNumber)
                     .textInputAutocapitalization(.characters)
                     .autocorrectionDisabled()
@@ -97,14 +103,17 @@ struct ManualFlightEntryView: View {
         let type = fleet.aircraft.first {
             NNumber.normalize($0.tailNumber) == tail
         }?.typeCode ?? ""
+        // No time known: midday on that date, so the day can't slip.
+        let start = knowsTime ? date
+            : Calendar.current.date(bySettingHour: 12, minute: 0, second: 0, of: date) ?? date
         return Flight(
             tailNumber: tail,
             typeCode: type,
             departure: departure,
             destination: destination,
-            startedTracking: date,
-            takeoffTime: date,
-            landingTime: date.addingTimeInterval(hours * 3600),
+            startedTracking: start,
+            takeoffTime: start,
+            landingTime: start.addingTimeInterval(hours * 3600),
             notes: notes
         )
     }

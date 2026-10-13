@@ -1,5 +1,6 @@
 import SwiftUI
 import PhotosUI
+import UniformTypeIdentifiers
 
 /// Pro feature: photograph a paper logbook page, let on-device text
 /// recognition pull out candidate entries, review, and import.
@@ -20,6 +21,7 @@ struct LogbookScanView: View {
     }
 
     @State private var photoSelection: PhotosPickerItem?
+    @State private var importingFile = false
     @State private var pageImage: UIImage?
     @State private var isScanning = false
     @State private var entries: [ScannedEntry] = []
@@ -84,8 +86,17 @@ struct LogbookScanView: View {
                 Label(pageImage == nil ? "Choose a photo of a logbook page" : "Choose a different page",
                       systemImage: "doc.viewfinder")
             }
+            Button {
+                importingFile = true
+            } label: {
+                Label("Choose from Files or Google Drive", systemImage: "folder")
+            }
+            .fileImporter(isPresented: $importingFile, allowedContentTypes: [.image]) { result in
+                guard case .success(let url) = result else { return }
+                Task { await loadAndScan(fileURL: url) }
+            }
         } footer: {
-            Text("Take a straight-on, well-lit photo of the page first. Recognition runs entirely on your iPhone. Review every entry before importing — OCR on handwriting is helpful, not perfect. After importing, TailTrack looks up each flight's real ADS-B track by itself.")
+            Text("Photo in Google Photos? Open it there, tap Share → Save to Files (or save it to your iPhone), then choose it here. Take a straight-on, well-lit photo of the page first. Recognition runs entirely on your iPhone. Review every entry before importing — OCR on handwriting is helpful, not perfect. After importing, TailTrack looks up each flight's real ADS-B track by itself.")
         }
     }
 
@@ -127,9 +138,29 @@ struct LogbookScanView: View {
         errorMessage = nil
         isScanning = true
         defer { isScanning = false }
-        guard let data = try? await item.loadTransferable(type: Data.self),
-              let image = UIImage(data: data) else {
+        guard let data = try? await item.loadTransferable(type: Data.self) else {
             errorMessage = "Couldn't load that photo."
+            return
+        }
+        await scan(data)
+    }
+
+    private func loadAndScan(fileURL url: URL) async {
+        errorMessage = nil
+        isScanning = true
+        defer { isScanning = false }
+        let access = url.startAccessingSecurityScopedResource()
+        defer { if access { url.stopAccessingSecurityScopedResource() } }
+        guard let data = try? Data(contentsOf: url) else {
+            errorMessage = "Couldn't open that file."
+            return
+        }
+        await scan(data)
+    }
+
+    private func scan(_ data: Data) async {
+        guard let image = UIImage(data: data) else {
+            errorMessage = "That file isn't a photo TailTrack can read."
             return
         }
         pageImage = image
