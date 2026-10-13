@@ -146,7 +146,12 @@ struct LogbookScanView: View {
     /// date plus at least one more logbook-shaped field (tail number,
     /// airport idents that exist in the database, or a decimal hours value).
     private func parse(rows: [String]) -> [ScannedEntry] {
-        let dateRegex = try! NSRegularExpression(pattern: #"\b(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{2,4})\b"#)
+        // Year optional: many logbooks write "9/2" and put the year once at
+        // the top of the column ("2025", then "2026" when it changes).
+        // Slash or dash only, so an hours value like "1.3" never reads as a date.
+        let dateRegex = try! NSRegularExpression(pattern: #"\b(\d{1,2})[/\-](\d{1,2})(?:[/\-](\d{2,4}))?\b"#)
+        let yearRegex = try! NSRegularExpression(pattern: #"\b(20\d{2})\b"#)
+        var pageYear: Int?
         let hoursRegex = try! NSRegularExpression(pattern: #"\b(\d{1,2}\.\d)\b"#)
 
         var results: [ScannedEntry] = []
@@ -154,8 +159,14 @@ struct LogbookScanView: View {
             let line = row.uppercased()
             let range = NSRange(line.startIndex..., in: line)
 
+            if let yearMatch = yearRegex.firstMatch(in: line, range: range),
+               let r = Range(yearMatch.range(at: 1), in: line),
+               dateRegex.firstMatch(in: line, range: range) == nil {
+                pageYear = Int(line[r])
+                continue
+            }
             guard let dateMatch = dateRegex.firstMatch(in: line, range: range),
-                  let date = date(from: dateMatch, in: line) else { continue }
+                  let date = date(from: dateMatch, in: line, fallbackYear: pageYear) else { continue }
 
             let tokens = line.split(whereSeparator: { !$0.isLetter && !$0.isNumber })
                 .map(String.init)
@@ -190,15 +201,27 @@ struct LogbookScanView: View {
         return results
     }
 
-    private func date(from match: NSTextCheckingResult, in line: String) -> Date? {
+    private func date(from match: NSTextCheckingResult, in line: String, fallbackYear: Int?) -> Date? {
         func component(_ index: Int) -> Int? {
             Range(match.range(at: index), in: line).flatMap { Int(line[$0]) }
         }
-        guard let month = component(1), let day = component(2), var year = component(3),
+        guard let month = component(1), let day = component(2),
               (1...12).contains(month), (1...31).contains(day) else { return nil }
-        if year < 100 { year += 2000 }
-        guard (1990...2100).contains(year) else { return nil }
-        return Calendar.current.date(from: DateComponents(year: year, month: month, day: day, hour: 12))
+        let calendar = Calendar.current
+        if var year = component(3) {
+            if year < 100 { year += 2000 }
+            guard (1990...2100).contains(year) else { return nil }
+            return calendar.date(from: DateComponents(year: year, month: month, day: day, hour: 12))
+        }
+        // No year on the row: the page's year, else the most recent such
+        // date that isn't in the future.
+        let thisYear = calendar.component(.year, from: Date())
+        let year = fallbackYear ?? thisYear
+        guard let dated = calendar.date(from: DateComponents(year: year, month: month, day: day, hour: 12)) else { return nil }
+        if fallbackYear == nil, dated > Date() {
+            return calendar.date(from: DateComponents(year: year - 1, month: month, day: day, hour: 12))
+        }
+        return dated
     }
 
     private func importEntries() {

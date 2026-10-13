@@ -160,9 +160,23 @@ actor FrequencyDirectory {
             .appendingPathComponent("airport-frequencies.json")
     }
 
+    /// Changes pilots have reported that the OurAirports community data
+    /// hasn't caught up with yet. Each entry replaces every frequency of
+    /// that type at the field. Verify against the Chart Supplement.
+    private static let corrections: [String: [AirportFrequency]] = [
+        // San Carlos ground moved from 121.6 to 118.025.
+        "KSQL": [AirportFrequency(type: "GND", description: "GROUND", mhz: 118.025)],
+    ]
+
     func frequencies(for ident: String) async -> [AirportFrequency] {
         let table = await loadTable()
-        return (table[ident.uppercased()] ?? []).sorted {
+        let key = ident.uppercased()
+        var list = table[key] ?? []
+        for fix in Self.corrections[key] ?? [] {
+            list.removeAll { $0.type.uppercased() == fix.type }
+            list.append(fix)
+        }
+        return list.sorted {
             ($0.sortRank, $0.mhz) < ($1.sortRank, $1.mhz)
         }
     }
