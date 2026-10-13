@@ -168,11 +168,11 @@ struct FlightMapView: View {
             if let currentPosition {
                 Annotation(tailNumber, coordinate: currentPosition) {
                     Image(systemName: "airplane")
-                        .font(.title3.weight(.bold))
+                        .font(.title.weight(.bold))
                         .foregroundStyle(.white)
                         .shadow(radius: 2)
                         .rotationEffect(.degrees((currentTrackDeg ?? 90) - 90))
-                        .padding(7)
+                        .padding(10)
                         .background(
                             LinearGradient(colors: [Theme.accent, Theme.accentDeep],
                                            startPoint: .top, endPoint: .bottom),

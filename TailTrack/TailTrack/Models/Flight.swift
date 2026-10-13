@@ -92,8 +92,14 @@ struct Flight: Codable, Identifiable {
         airbornePoints.compactMap(\.altitudeFt).max()
     }
 
+    /// Ignores lone glitches in the ADS-B data (a 368 kt spike in a 172):
+    /// anything far above the flight's typical speed doesn't count.
     var maxGroundSpeedKt: Double? {
-        airbornePoints.compactMap(\.groundSpeedKt).max()
+        let speeds = airbornePoints.compactMap(\.groundSpeedKt).sorted()
+        guard !speeds.isEmpty else { return nil }
+        let median = speeds[speeds.count / 2]
+        let ceiling = max(median * 1.8, median + 60)
+        return speeds.last { $0 <= ceiling } ?? median
     }
 
     var averageGroundSpeedKt: Double? {

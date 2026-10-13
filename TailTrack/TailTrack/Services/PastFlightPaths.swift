@@ -67,7 +67,17 @@ enum PastFlightPaths {
             let tolerance = max(30 * 60, logged * 0.4)
             if abs(logged - candidate.segment.duration) > tolerance { return false }
         }
+        if let takeoff = knownTakeoff(flight),
+           abs(candidate.segment.takeoff.timeIntervalSince(takeoff)) > 45 * 60 { return false }
         return true
+    }
+
+    /// The takeoff time the pilot entered. Entries without one are stored
+    /// at exactly 12:00:00, which doesn't count as known.
+    static func knownTakeoff(_ flight: Flight) -> Date? {
+        guard let takeoff = flight.takeoffTime else { return nil }
+        let c = Calendar.current.dateComponents([.hour, .minute, .second], from: takeoff)
+        return (c.hour == 12 && c.minute == 0 && c.second == 0) ? nil : takeoff
     }
 }
 
@@ -182,7 +192,11 @@ final class PastFlightPathFinder {
             !PastFlightPaths.isAlreadyLogged($0.segment, for: entry, in: logbook.flights)
         }
         let fitting = open.filter { PastFlightPaths.fits($0, entry) }
-        if fitting.count == 1, let match = fitting.first {
+        // Attach on its own only when there's no real choice: the plane
+        // flew once that day, or the pilot's takeoff time singles one out.
+        // Otherwise the pilot picks ("is this the correct flight?").
+        let unambiguous = open.count == 1 || PastFlightPaths.knownTakeoff(entry) != nil
+        if unambiguous, fitting.count == 1, let match = fitting.first {
             logbook.attachHistoricalTrack(flightID: id, segment: match.segment,
                                           departure: match.from, destination: match.to, hex: hex)
             return .found
