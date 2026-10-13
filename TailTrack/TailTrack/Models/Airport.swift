@@ -32,7 +32,7 @@ struct Airport: Codable, Identifiable, Hashable {
     var regionDescription: String? {
         guard let region, !region.isEmpty else { return nil }
         let parts = region.split(separator: "-", maxSplits: 1).map(String.init)
-        let country = parts[0]
+        guard let country = parts.first else { return nil }
         let subdivision = parts.count > 1 ? parts[1] : ""
         if country == "US" { return subdivision.isEmpty ? "USA" : subdivision }
         let countryName = Locale.current.localizedString(forRegionCode: country) ?? country

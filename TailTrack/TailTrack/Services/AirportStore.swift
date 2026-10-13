@@ -40,7 +40,8 @@ final class AirportStore {
     /// community updates continuously — new strips, renamed idents,
     /// closures — so a monthly silent refresh keeps codes current.
     var cacheIsStale: Bool {
-        guard usingFullDatabase else { return true }
+        // lastUpdated is set only while a full cached database exists (it
+        // may still be loading in the background at launch).
         guard let lastUpdated else { return true }
         return Date().timeIntervalSince(lastUpdated) > 30 * 86_400
     }
@@ -134,16 +135,28 @@ final class AirportStore {
 
     // MARK: - Loading
 
+    /// The small built-in list is ready instantly; the full worldwide
+    /// database (tens of thousands of fields) is decoded off the main
+    /// thread so launch never freezes, then swapped in.
     private func loadCachedOrStarter() {
-        if let data = try? Data(contentsOf: Self.cacheURL),
-           let decoded = try? JSONDecoder().decode([Airport].self, from: data),
-           decoded.count > 1000 {
-            apply(decoded, full: true)
-            let attrs = try? FileManager.default.attributesOfItem(atPath: Self.cacheURL.path)
-            lastUpdated = attrs?[.modificationDate] as? Date
-            return
-        }
         loadStarter()
+        let url = Self.cacheURL
+        guard FileManager.default.fileExists(atPath: url.path) else { return }
+        let attrs = try? FileManager.default.attributesOfItem(atPath: url.path)
+        lastUpdated = attrs?[.modificationDate] as? Date
+        Task {
+            let decoded: [Airport]? = await Task.detached(priority: .userInitiated) {
+                guard let data = try? Data(contentsOf: url),
+                      let list = try? JSONDecoder().decode([Airport].self, from: data),
+                      list.count > 1000 else { return nil }
+                return list
+            }.value
+            if let decoded {
+                apply(decoded, full: true)
+            } else {
+                lastUpdated = nil   // unreadable cache: download a fresh copy
+            }
+        }
     }
 
     private func loadStarter() {
@@ -191,8 +204,11 @@ final class AirportStore {
             }.value
             guard parsed.count > 1000 else { throw URLError(.cannotParseResponse) }
 
-            let encoded = try JSONEncoder().encode(parsed)
-            try encoded.write(to: Self.cacheURL, options: .atomic)
+            let cacheURL = Self.cacheURL
+            try await Task.detached(priority: .utility) {
+                let encoded = try JSONEncoder().encode(parsed)
+                try encoded.write(to: cacheURL, options: .atomic)
+            }.value
             apply(parsed, full: true)
             lastUpdated = Date()
         } catch {
