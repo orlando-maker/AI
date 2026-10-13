@@ -8,6 +8,7 @@ struct AirportPickerView: View {
     @Environment(AirportStore.self) private var airports
     @Environment(\.dismiss) private var dismiss
     @State private var query = ""
+    @FocusState private var searchFocused: Bool
 
     private var results: [Airport] {
         airports.search(query)
@@ -39,10 +40,20 @@ struct AirportPickerView: View {
                     }
                 }
                 Section {
+                    HStack(spacing: 8) {
+                        Image(systemName: "magnifyingglass")
+                            .foregroundStyle(.secondary)
+                        TextField("KSQL, San Carlos, SLC…", text: $query)
+                            .focused($searchFocused)
+                            .textInputAutocapitalization(.characters)
+                            .autocorrectionDisabled()
+                            .submitLabel(.search)
+                    }
+                }
+                Section {
                     ForEach(results) { airport in
                         Button {
-                            onSelect(airport)
-                            dismiss()
+                            choose(airport)
                         } label: {
                             VStack(alignment: .leading, spacing: 2) {
                                 HStack {
@@ -69,7 +80,6 @@ struct AirportPickerView: View {
                     }
                 }
             }
-            .searchable(text: $query, prompt: "KSQL, San Carlos, SLC…")
             .navigationTitle(title)
             .scrollContentBackground(.hidden)
             .background(Theme.paper)
@@ -80,5 +90,14 @@ struct AirportPickerView: View {
                 }
             }
         }
+    }
+
+    /// The keyboard has to let go before the sheet closes: dismissing
+    /// with the text field still focused crashes recent iOS ("Accessing
+    /// the focus system through UIScreen is no longer supported").
+    private func choose(_ airport: Airport) {
+        searchFocused = false
+        onSelect(airport)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { dismiss() }
     }
 }

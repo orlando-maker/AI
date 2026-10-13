@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// Searches Openverse for CC0 / public-domain photos (no credit required)
 /// and lets the user pick one as their aircraft's photo.
@@ -126,6 +127,11 @@ struct OpenPhotoPickerView: View {
             defer { downloadingID = nil }
             if let data = try? await client.downloadImageData(from: result.fullURL) {
                 onPicked(data)
+                // Let the search field give up the keyboard first; closing
+                // the sheet while it's focused crashes recent iOS.
+                UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder),
+                                                to: nil, from: nil, for: nil)
+                try? await Task.sleep(for: .milliseconds(150))
                 dismiss()
             } else {
                 errorMessage = "Couldn't download that image — try another."
