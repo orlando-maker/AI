@@ -1,0 +1,401 @@
+import SwiftUI
+import PhotosUI
+import CoreLocation
+
+/// A saved flight: route summary, map of the flown track, stats, notes,
+/// and (Pro) GPX/CSV export.
+struct FlightDetailView: View {
+    private let initialFlight: Flight
+
+    init(flight: Flight) {
+        initialFlight = flight
+    }
+
+    @Environment(LogbookStore.self) private var logbook
+    @State private var findingTrack = false
+
+    /// The logbook's live copy, so attaching a track (or any other edit)
+    /// shows up here immediately.
+    private var flight: Flight {
+        logbook.flights.first { $0.id == initialFlight.id } ?? initialFlight
+    }
+
+    @Environment(ProStore.self) private var pro
+    @State private var notes: String = ""
+    @State private var showingPaywall = false
+    @State private var gpxURL: URL?
+    @State private var csvURL: URL?
+    @State private var shareCardURL: URL?
+    @State private var suggestedLandings = 0
+    @State private var confirmedLandings: Int?
+    @State private var photoSelection: [PhotosPickerItem] = []
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 16) {
+                summaryCard
+                if flight.track.count < 2 {
+                    findTrackCard
+                } else {
+                    FlightReplaySection(flight: flight)
+                        .id(flight.track.count)
+                }
+                storyCard
+                if flight.landingsCount == nil && confirmedLandings == nil
+                    && flight.detectedLandings >= 2 {
+                    landingsSuggestionCard
+                }
+                statsGrid
+                if flight.departureMetar != nil || flight.arrivalMetar != nil {
+                    weatherCard
+                }
+                if let radioLog = flight.radioLog, !radioLog.isEmpty {
+                    radioLogCard(radioLog)
+                }
+                photosCard
+                notesCard
+                exportCard
+            }
+            .padding()
+            .readableContentWidth()
+        }
+        .background(Theme.paper)
+        .navigationTitle(flight.routeTitle)
+        .navigationBarTitleDisplayMode(.inline)
+        .sheet(isPresented: $showingPaywall) { PaywallView() }
+        .sheet(isPresented: $findingTrack) {
+            HistoricalTrackMatchView(flight: flight)
+        }
+        .onChange(of: flight.track.count) { _, _ in
+            if pro.isPro { prepareExports() }
+        }
+        .sensoryFeedback(.success, trigger: flight.track.count) { old, new in old < 2 && new >= 2 }
+        .sensoryFeedback(.success, trigger: confirmedLandings) { _, new in new != nil }
+        .onChange(of: flight.notes) { _, newNotes in
+            notes = newNotes
+        }
+        .onAppear {
+            notes = flight.notes
+            suggestedLandings = flight.detectedLandings
+            if pro.isPro { prepareExports() }
+        }
+        .onChange(of: pro.isPro) { _, isPro in
+            if isPro { prepareExports() }
+        }
+    }
+
+    private var summaryCard: some View {
+        VStack(spacing: 12) {
+            HStack {
+                Text(flight.tailNumber)
+                    .font(.system(.title3, design: .rounded).weight(.heavy))
+                    .foregroundStyle(.white)
+                Spacer()
+                Text(flight.startedTracking.formatted(date: .abbreviated, time: .omitted))
+                    .font(.subheadline)
+                    .foregroundStyle(.white.opacity(0.7))
+            }
+            RouteProgressBar(
+                departureIdent: flight.departure?.ident ?? "———",
+                destinationIdent: flight.destination?.ident ?? "———",
+                progress: 1
+            )
+            .tint(.white)
+            .foregroundStyle(.white)
+            HStack(spacing: 8) {
+                GlassTile(label: "Wheels up",
+                          value: flight.takeoffTime.map(Format.clockTime) ?? "—")
+                GlassTile(label: "Landed",
+                          value: flight.landingTime.map(Format.clockTime) ?? "—")
+                GlassTile(label: "Time",
+                          value: flight.flightTime.map(Format.duration) ?? "—")
+            }
+        }
+        .padding(18)
+        .background(Theme.sunset, in: RoundedRectangle(cornerRadius: 22))
+        .shadow(color: .black.opacity(0.2), radius: 10, y: 5)
+    }
+
+    /// Typed-in and scanned entries have no path yet; the ADS-B archives
+    /// usually do. Finding it is a Pro feature.
+    private var findTrackCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label("No flight path yet", systemImage: "point.topleft.down.to.point.bottomright.curvepath")
+                .font(.headline)
+            Text("TailTrack can look up \(flight.tailNumber)'s real ADS-B track for this day, with the map, altitude profile and replay, just like a live-tracked flight.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+            if PastFlightPathFinder.shared.isPending(flight.id) {
+                HStack(spacing: 8) {
+                    ProgressView()
+                    Text("Looking for it now…")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
+            } else {
+                Button {
+                    if pro.isPro { findingTrack = true } else { showingPaywall = true }
+                } label: {
+                    Label(pro.isPro ? "Find the flight path" : "Find the flight path with Pro",
+                          systemImage: pro.isPro ? "magnifyingglass" : "lock.fill")
+                        .font(.callout.weight(.semibold))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 4)
+                }
+                .buttonStyle(.borderedProminent)
+                if !pro.isPro, let trial = pro.trialLength {
+                    Text("Pro is free for \(trial).")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity)
+                }
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .cardSurface(16)
+    }
+
+    private var storyCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("Flight story")
+                    .font(.headline)
+                Spacer()
+                ShareLink(item: flight.story) {
+                    Image(systemName: "square.and.arrow.up")
+                        .font(.callout)
+                }
+            }
+            Text(flight.story)
+                .font(.callout)
+                .textSelection(.enabled)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .cardSurface(16)
+    }
+
+    private var landingsSuggestionCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label(flight.isLikelyPatternWork
+                  ? "Looks like pattern work at \(flight.destination?.ident ?? "the field")"
+                  : "Multiple landings detected",
+                  systemImage: "arrow.triangle.2.circlepath")
+                .font(.headline)
+            Text("TailTrack counted \(flight.detectedLandings) landings from the track. ADS-B gets patchy at pattern altitude, so confirm the number before it's recorded — this is your data, not instruction.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            HStack {
+                Stepper("Landings: \(suggestedLandings)", value: $suggestedLandings, in: 1...50)
+                    .font(.callout)
+                Button("Confirm") {
+                    logbook.updateLandings(for: flight.id, landings: suggestedLandings)
+                    confirmedLandings = suggestedLandings
+                }
+                .buttonStyle(.borderedProminent)
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .cardSurface(16)
+    }
+
+    /// What was heard and set on the radio, in order: frequencies,
+    /// clearances, squawk codes and ATIS.
+    private func radioLogCard(_ entries: [RadioLogEntry]) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label("Radio log", systemImage: "dot.radiowaves.left.and.right")
+                .font(.headline)
+            ForEach(entries) { entry in
+                RadioEntryRow(entry: entry)
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .cardSurface()
+    }
+
+    private var weatherCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Weather at the time")
+                .font(.headline)
+            if let dep = flight.departureMetar {
+                Text(dep)
+                    .font(.caption.monospaced())
+                    .textSelection(.enabled)
+            }
+            if let arr = flight.arrivalMetar, arr != flight.departureMetar {
+                Text(arr)
+                    .font(.caption.monospaced())
+                    .textSelection(.enabled)
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .cardSurface(16)
+    }
+
+    private var statsGrid: some View {
+        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 3), spacing: 10) {
+            StatTile(label: "Distance", value: Format.nm(flight.distanceFlownNM))
+            StatTile(label: "Direct", value: flight.routeDistanceNM.map(Format.nm) ?? "—")
+            StatTile(label: "Max alt", value: flight.maxAltitudeFt.map(Format.feet) ?? "—")
+            StatTile(label: "Max GS", value: flight.maxGroundSpeedKt.map(Format.knots) ?? "—")
+            StatTile(label: "Avg GS", value: flight.averageGroundSpeedKt.map(Format.knots) ?? "—")
+            StatTile(label: "Cruise GS", value: flight.cruiseGroundSpeedKt.map(Format.knots) ?? "—")
+            if let hobbs = flight.hobbsTime {
+                StatTile(label: "Hobbs", value: String(format: "%.1f", hobbs))
+            }
+            if let tach = flight.tachTime {
+                StatTile(label: "Tach", value: String(format: "%.1f", tach))
+            }
+            if let landings = flight.landingsCount ?? confirmedLandings {
+                StatTile(label: "Landings", value: "\(landings)")
+            }
+            if let planned = flight.plannedDestinationIdent {
+                StatTile(label: "Planned dest", value: planned)
+            }
+        }
+    }
+
+    private var photosCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("Photos")
+                    .font(.headline)
+                Spacer()
+                PhotosPicker(selection: $photoSelection, maxSelectionCount: 6, matching: .images) {
+                    Label("Add", systemImage: "photo.badge.plus")
+                        .font(.callout.weight(.semibold))
+                }
+            }
+            let names = flight.photoFileNames ?? []
+            if names.isEmpty {
+                Text("Add photos from the flight: the view, the airplane, the sunset.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 10) {
+                        ForEach(names, id: \.self) { name in
+                            if let image = ImageStore.load(name) {
+                                Image(uiImage: image)
+                                    .resizable()
+                                    .scaledToFill()
+                                    .frame(width: 130, height: 130)
+                                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                                    .contextMenu {
+                                        Button(role: .destructive) {
+                                            logbook.removePhoto(from: flight.id, fileName: name)
+                                        } label: {
+                                            Label("Remove Photo", systemImage: "trash")
+                                        }
+                                    }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .cardSurface(16)
+        .onChange(of: photoSelection) { _, items in
+            guard !items.isEmpty else { return }
+            let flightID = flight.id
+            Task {
+                for item in items {
+                    let data = try? await item.loadTransferable(type: Data.self)
+                    if let data { logbook.addPhoto(to: flightID, imageData: data) }
+                }
+                photoSelection = []
+            }
+        }
+    }
+
+    private var notesCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Notes")
+                .font(.headline)
+            TextField("Squawks, conditions, who was aboard…", text: $notes, axis: .vertical)
+                .lineLimit(3...8)
+                .onSubmit { logbook.updateNotes(for: flight.id, notes: notes) }
+            if notes != flight.notes {
+                Button("Save Notes") {
+                    logbook.updateNotes(for: flight.id, notes: notes)
+                }
+                .font(.callout.weight(.semibold))
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .cardSurface(16)
+    }
+
+    private var exportCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("Export")
+                    .font(.headline)
+                if !pro.isPro {
+                    Text("PRO")
+                        .font(.caption2.weight(.heavy))
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Theme.proGold.opacity(0.2), in: Capsule())
+                        .foregroundStyle(Theme.proGold)
+                }
+                Spacer()
+            }
+            if pro.isPro {
+                HStack(spacing: 12) {
+                    if let shareCardURL {
+                        ShareLink(item: shareCardURL) {
+                            Label("Share card", systemImage: "photo.badge.arrow.down")
+                        }
+                    }
+                    if let gpxURL {
+                        ShareLink(item: gpxURL) {
+                            Label("GPX", systemImage: "square.and.arrow.up")
+                        }
+                    }
+                    if let csvURL {
+                        ShareLink(item: csvURL) {
+                            Label("CSV", systemImage: "tablecells")
+                        }
+                    }
+                }
+                .font(.callout)
+            } else {
+                Button {
+                    showingPaywall = true
+                } label: {
+                    Label("Unlock GPX & CSV export with Pro", systemImage: "lock.fill")
+                        .font(.callout)
+                }
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .cardSurface(16)
+    }
+
+    private func prepareExports() {
+        let base = FlightExport.baseFileName(for: flight)
+        gpxURL = FlightExport.temporaryFile(named: base + ".gpx",
+                                            contents: FlightExport.gpx(for: flight))
+        csvURL = FlightExport.temporaryFile(named: base + ".csv",
+                                            contents: FlightExport.csv(for: flight))
+
+        let renderer = ImageRenderer(content: FlightShareCard(flight: flight))
+        renderer.scale = 3
+        if let image = renderer.uiImage, let data = image.pngData() {
+            let url = FileManager.default.temporaryDirectory
+                .appendingPathComponent(base + "-card.png")
+            if (try? data.write(to: url, options: .atomic)) != nil {
+                shareCardURL = url
+            }
+        }
+    }
+}
