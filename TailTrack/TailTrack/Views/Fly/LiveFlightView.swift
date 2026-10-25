@@ -28,30 +28,58 @@ struct LiveFlightView: View {
     @State private var atis: [String: [ATISReport]] = [:]
     @AppStorage(FlightTracker.nearbyTrafficKey) private var showTraffic = true
 
+    /// Regular width (iPad, a foldable unfolded, a big phone sideways)
+    /// gets two columns: the numbers beside the map, not stretched.
+    @Environment(\.horizontalSizeClass) private var sizeClass
+
+    private var infoColumn: some View {
+        VStack(spacing: 16) {
+            heroCard
+            if !weather.isEmpty {
+                weatherStrip
+            }
+            if tracker.phase == .enroute, !takeoffTextSent, canText {
+                flightTextButton(
+                    label: "Text that you're off",
+                    icon: "message.fill"
+                ) {
+                    takeoffTextSent = true
+                    textPayload = FlightTextPayload(recipients: recipientPhones,
+                                                    body: takeoffMessage)
+                }
+            }
+            statsGrid
+        }
+    }
+
+    private var mapColumn: some View {
+        VStack(spacing: 16) {
+            mapCard
+            RadioLogCard()
+            controls
+        }
+    }
+
     var body: some View {
         ScrollView {
-            VStack(spacing: 16) {
-                heroCard
-                if !weather.isEmpty {
-                    weatherStrip
-                }
-                if tracker.phase == .enroute, !takeoffTextSent, canText {
-                    flightTextButton(
-                        label: "Text that you're off",
-                        icon: "message.fill"
-                    ) {
-                        takeoffTextSent = true
-                        textPayload = FlightTextPayload(recipients: recipientPhones,
-                                                        body: takeoffMessage)
+            Group {
+                if sizeClass == .regular {
+                    HStack(alignment: .top, spacing: 16) {
+                        infoColumn
+                            .frame(maxWidth: 460)
+                        mapColumn
+                            .frame(maxWidth: .infinity)
                     }
+                    .padding()
+                } else {
+                    VStack(spacing: 16) {
+                        infoColumn
+                        mapColumn
+                    }
+                    .padding()
+                    .readableContentWidth()
                 }
-                statsGrid
-                mapCard
-                RadioLogCard()
-                controls
             }
-            .padding()
-            .readableContentWidth()
         }
         .background(Theme.paper)
         // Haptics only for the moments a pilot would want to feel without

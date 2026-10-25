@@ -14,8 +14,36 @@ struct LogbookView: View {
     @State private var logbookExportURL: URL?
     @State private var showingExport = false
 
+    /// Regular width (iPad, a foldable unfolded) shows the list beside the
+    /// open flight instead of pushing full screen.
+    @Environment(\.horizontalSizeClass) private var sizeClass
+    @State private var selectedFlightID: UUID?
+
     var body: some View {
-        NavigationStack {
+        if sizeClass == .regular {
+            NavigationSplitView {
+                listColumn
+            } detail: {
+                if let id = selectedFlightID,
+                   let flight = logbook.flights.first(where: { $0.id == id }) {
+                    NavigationStack {
+                        FlightDetailView(flight: flight)
+                    }
+                    .id(id)
+                } else {
+                    ContentUnavailableView("Select a flight",
+                                           systemImage: "airplane",
+                                           description: Text("Pick a flight from the list to see its map, replay and stats."))
+                }
+            }
+        } else {
+            NavigationStack {
+                listColumn
+            }
+        }
+    }
+
+    private var listColumn: some View {
             Group {
                 if logbook.flights.isEmpty {
                     ContentUnavailableView(
@@ -24,7 +52,7 @@ struct LogbookView: View {
                         description: Text("Track a flight from the Fly tab, or add past flights with the + button — type them in or scan a logbook page.")
                     )
                 } else {
-                    List {
+                    List(selection: $selectedFlightID) {
                         Section {
                             totalsCard
                                 .listRowInsets(EdgeInsets())
@@ -143,7 +171,6 @@ struct LogbookView: View {
                 .padding(28)
                 .presentationDetents([.medium])
             }
-        }
     }
 
     /// Flight Memories: flights from earlier years that happened on
