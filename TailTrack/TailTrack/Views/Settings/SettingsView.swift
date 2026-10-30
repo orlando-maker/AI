@@ -136,9 +136,17 @@ struct SettingsView: View {
         }
     }
 
+    /// "1.0 (1)": the version people see, then the build number.
+    private static var versionLabel: String {
+        let info = Bundle.main.infoDictionary
+        let version = info?["CFBundleShortVersionString"] as? String ?? "1.0"
+        let build = info?["CFBundleVersion"] as? String ?? "1"
+        return "\(version) (\(build))"
+    }
+
     private var aboutSection: some View {
         Section {
-            LabeledContent("Version", value: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0")
+            LabeledContent("Version", value: Self.versionLabel)
             NavigationLink("Legal") { LegalView() }
             Link(destination: LegalDocuments.websiteURL) {
                 Label("orlandonell.com", systemImage: "globe")

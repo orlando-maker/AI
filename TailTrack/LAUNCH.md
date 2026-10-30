@@ -216,3 +216,17 @@ a one-line change. Receivers will then only play while the app is open.
 - Put the App Store badge and link on orlandonell.com, and change "Coming
   October 2026" to "Available now".
 - Answer support emails quickly. Early reviews matter most.
+
+## Every update after launch
+
+Each release needs a new number, or App Store Connect rejects the upload.
+In `project.yml`, in **both** the TailTrack and TailTrackWidgets targets:
+
+- `MARKETING_VERSION`: the version people see. Bug fixes: 1.0 → 1.0.1.
+  New features: 1.0 → 1.1.
+- `CURRENT_PROJECT_VERSION`: the build number. Raise it by one on every
+  upload, even if the version stays the same (1, 2, 3…).
+
+Then `xcodegen generate`, Archive, Upload, and add the new version in App
+Store Connect with "What's New" text. Settings → About shows
+"version (build)", for example "1.0 (1)".
