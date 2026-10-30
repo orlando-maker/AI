@@ -6,14 +6,8 @@ struct LegalView: View {
     var body: some View {
         List {
             Section {
-                NavigationLink("Terms of Service") {
-                    LegalDocumentView(title: "Terms of Service",
-                                      text: LegalDocuments.termsOfService)
-                }
-                NavigationLink("Privacy Policy") {
-                    LegalDocumentView(title: "Privacy Policy",
-                                      text: LegalDocuments.privacyPolicy)
-                }
+                Link("Terms of Service", destination: LegalDocuments.termsURL)
+                Link("Privacy Policy", destination: LegalDocuments.privacyURL)
                 NavigationLink("Acknowledgements & Data Sources") {
                     LegalDocumentView(title: "Acknowledgements",
                                       text: LegalDocuments.acknowledgements)
@@ -94,14 +88,8 @@ struct TermsGateView: View {
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                             HStack(spacing: 16) {
-                                NavigationLink("Read Terms of Service") {
-                                    LegalDocumentView(title: "Terms of Service",
-                                                      text: LegalDocuments.termsOfService)
-                                }
-                                NavigationLink("Privacy Policy") {
-                                    LegalDocumentView(title: "Privacy Policy",
-                                                      text: LegalDocuments.privacyPolicy)
-                                }
+                                Link("Read Terms of Service", destination: LegalDocuments.termsURL)
+                                Link("Privacy Policy", destination: LegalDocuments.privacyURL)
                             }
                             .font(.caption.weight(.semibold))
                         }

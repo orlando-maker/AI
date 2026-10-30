@@ -182,14 +182,8 @@ struct PaywallView: View {
             .font(.callout)
             .offerCodeRedemption(isPresented: $redeemingCode)
             HStack(spacing: 14) {
-                NavigationLink("Terms of Service") {
-                    LegalDocumentView(title: "Terms of Service",
-                                      text: LegalDocuments.termsOfService)
-                }
-                NavigationLink("Privacy Policy") {
-                    LegalDocumentView(title: "Privacy Policy",
-                                      text: LegalDocuments.privacyPolicy)
-                }
+                Link("Terms of Service", destination: LegalDocuments.termsURL)
+                Link("Privacy Policy", destination: LegalDocuments.privacyURL)
             }
             .font(.caption.weight(.semibold))
             Text(renewalTerms)

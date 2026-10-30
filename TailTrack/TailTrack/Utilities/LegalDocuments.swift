@@ -12,6 +12,9 @@ enum LegalDocuments {
     static let acceptedVersionKey = "acceptedLegalVersion"
 
     static let websiteURL = URL(string: "https://orlandonell.com")!
+    /// The hosted legal pages, also entered in App Store Connect.
+    static let privacyURL = URL(string: "https://tailtrackapp.com/privacy")!
+    static let termsURL = URL(string: "https://tailtrackapp.com/terms")!
     static let supportEmail = "support@orlandonell.com"
 
     static let termsOfService = """

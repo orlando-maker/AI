@@ -52,9 +52,9 @@ targets:
           - UIInterfaceOrientationPortraitUpsideDown
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
-        # Uncomment together with the Sign in with Apple entitlements block
-        # below — it makes the in-app Apple sign-in button appear:
-        # TTAppleSignInEnabled: true
+        # Makes the in-app Sign in with Apple button appear. Needs the
+        # entitlements block below (a paid developer team).
+        TTAppleSignInEnabled: true
         # Google Sign-In config — fill in your OAuth iOS client ID from
         # console.cloud.google.com and uncomment (see README):
         # GIDClientID: "YOUR_CLIENT_ID.apps.googleusercontent.com"
@@ -68,16 +68,15 @@ targets:
       #   - package: GoogleSignIn
       #     product: GoogleSignIn
     # Sign in with Apple and Game Center require a PAID Apple Developer
-    # account — with a free personal team these entitlements make signing
-    # (and the whole build) fail. Building with a paid team (any App Store
-    # or TestFlight build)? Uncomment this block, and TTAppleSignInEnabled
-    # above, then re-run `xcodegen generate`. See LAUNCH.md.
-    # entitlements:
-    #   path: TailTrack/TailTrack.entitlements
-    #   properties:
-    #     com.apple.developer.applesignin:
-    #       - Default
-    #     com.apple.developer.game-center: true
+    # account (App Store and TestFlight builds). With a free personal team
+    # these entitlements make signing fail: comment this block and
+    # TTAppleSignInEnabled out again, then re-run `xcodegen generate`.
+    entitlements:
+      path: TailTrack/TailTrack.entitlements
+      properties:
+        com.apple.developer.applesignin:
+          - Default
+        com.apple.developer.game-center: true
     settings:
       base:
         DEVELOPMENT_TEAM: "QS536ZUHC4"

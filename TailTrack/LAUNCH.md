@@ -63,8 +63,9 @@ App Store Connect (appstoreconnect.apple.com) → **Business**:
 3. In `project.yml`:
    - Set `DEVELOPMENT_TEAM: "XXXXXXXXXX"` (her Team ID) in **all three**
      targets.
-   - Uncomment the `entitlements:` block (Sign in with Apple and Game
-     Center) and the line `TTAppleSignInEnabled: true`.
+   - The `entitlements:` block (Sign in with Apple and Game Center) and
+     `TTAppleSignInEnabled: true` are already switched on. If you ever
+     build with a free personal team, comment them out again.
 4. Run `xcodegen generate`, open the project, and run it on your iPhone.
    With automatic signing, Xcode registers the bundle IDs
    (`com.orlandonell.tailtrack` and `.widgets`) under her team.
@@ -94,8 +95,13 @@ Then fill in:
 - **Pricing and Availability:** Free (Pro is sold in-app). Choose all
   countries, or start with the US, Canada and Mexico.
 - **App Privacy:**
-  - Privacy Policy URL: the policy page on orlandonell.com. It must say the
-    same thing as the in-app policy (Settings → Legal).
+  - **Privacy Policy URL:** `https://tailtrackapp.com/privacy`. The page
+    must be live before you submit, and must say the same thing as the
+    policy text in the app (Settings → Legal). `website/privacy.html` is
+    a ready-made page.
+  - **Terms of Use (EULA) URL:** `https://tailtrackapp.com/terms`. Enter it
+    under the app's License Agreement (App Information), or paste it into
+    the App Description. `website/terms.html` has the page.
   - Data collection: **"No, we do not collect data from this app."** This
     is accurate: everything stays on the device, and the lookups to
     adsb.lol, aviationweather.gov and datis.clowd.io aren't tied to the
@@ -154,7 +160,11 @@ How the trial works for a user:
   `flight tracker,ADS-B,logbook,pilot,aviation,tail number,student pilot,METAR,ATIS,Cessna,airplane`
 - **Description:** adapt the website's "The idea" paragraph and the six
   entries. Keep the "not for navigation" line.
-- **Support URL:** orlandonell.com, or a contact page.
+- **Support URL:** orlandonell.com or a contact page on your site, with
+  support@orlandonell.com working.
+- **Privacy Policy URL:** `https://tailtrackapp.com/privacy`
+- **Terms of Use URL:** `https://tailtrackapp.com/terms` (also linked
+  inside the app, including on the subscription screen)
 
 ## 7. Upload the build
 
