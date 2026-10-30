@@ -44,7 +44,7 @@ We do not send these services your name, profile, or logbook. Each service has i
 Purchases and subscriptions are processed entirely by Apple. We never see your payment details. If you share a flight card, export, or photo, it goes to the app or person you choose.
 
 4. YOUR CHOICES REGARDING YOUR PERSONAL INFORMATION
-Everything is on your device, so you control it. You can edit or delete any aircraft, flight, photo, or profile information in the app, sign out of Sign in with Apple in the Profile tab, and remove everything by deleting the app. Your logbook is also visible in the Files app, so you always have your own copy. You decide whether to add a radio receiver, use Find Open Photo, or sign in at all. There is no server-side account to close.
+Everything is on your device, so you control it. You can edit or delete any aircraft, flight, photo, or profile information in the app, sign out of Sign in with Apple or delete your account in the Profile tab, and remove everything by deleting the app. Your logbook is also visible in the Files app, so you always have your own copy. You decide whether to add a radio receiver, use Find Open Photo, or sign in at all. There is no server-side account to close.
 
 5. SECURITY OF YOUR PERSONAL INFORMATION
 Your data is stored in the app's private storage on your device, protected by iOS and your device passcode. If you use iCloud device backup, your backups are protected by Apple. Because we hold no copy of your data, a lost or unprotected device is the main risk, so keep your device locked. No method of storage or transmission is completely secure, and we cannot guarantee absolute security.
@@ -71,8 +71,8 @@ The app is not directed to children under 13, and we do not knowingly collect pe
 TailTrack does not track you across apps or websites, and contains no advertising or analytics trackers, so there is nothing to opt out of. We therefore treat every user the same regardless of any Do Not Track setting.
 
 13. UPDATES TO THIS PRIVACY POLICY
-We may update this policy. The effective date at the top shows when it last changed, and material changes will be presented in the app. The current version is always available in Settings → Legal and at https://orlandonell.com.
+We may update this policy. The effective date at the top shows when it last changed, and material changes will be presented in the app. The current version is always available in Settings → Legal and at https://tailtrackapp.com.
 
 14. CONTACT US
 Privacy questions: support@orlandonell.com
-Orlando Nell — https://orlandonell.com
+Orlando Nell — https://tailtrackapp.com

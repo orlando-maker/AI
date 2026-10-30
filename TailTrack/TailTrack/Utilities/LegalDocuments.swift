@@ -5,13 +5,13 @@ import Foundation
 ///
 /// NOTE FOR THE DEVELOPER: these are sensible starter documents, not legal
 /// advice. Have them reviewed before App Store release, and host matching
-/// copies at orlandonell.com.
+/// copies at tailtrackapp.com.
 enum LegalDocuments {
 
     static let version = 1
     static let acceptedVersionKey = "acceptedLegalVersion"
 
-    static let websiteURL = URL(string: "https://orlandonell.com")!
+    static let websiteURL = URL(string: "https://tailtrackapp.com")!
     /// The hosted legal pages, also entered in App Store Connect.
     static let privacyURL = URL(string: "https://tailtrackapp.com/privacy")!
     static let termsURL = URL(string: "https://tailtrackapp.com/terms")!
@@ -145,7 +145,7 @@ enum LegalDocuments {
     Purchases and subscriptions are processed entirely by Apple. We never see your payment details. If you share a flight card, export, or photo, it goes to the app or person you choose.
 
     4. YOUR CHOICES REGARDING YOUR PERSONAL INFORMATION
-    Everything is on your device, so you control it. You can edit or delete any aircraft, flight, photo, or profile information in the app, sign out of Sign in with Apple in the Profile tab, and remove everything by deleting the app. Your logbook is also visible in the Files app, so you always have your own copy. You decide whether to add a radio receiver, use Find Open Photo, or sign in at all. There is no server-side account to close.
+    Everything is on your device, so you control it. You can edit or delete any aircraft, flight, photo, or profile information in the app, sign out of Sign in with Apple or delete your account in the Profile tab, and remove everything by deleting the app. Your logbook is also visible in the Files app, so you always have your own copy. You decide whether to add a radio receiver, use Find Open Photo, or sign in at all. There is no server-side account to close.
 
     5. SECURITY OF YOUR PERSONAL INFORMATION
     Your data is stored in the app's private storage on your device, protected by iOS and your device passcode. If you use iCloud device backup, your backups are protected by Apple. Because we hold no copy of your data, a lost or unprotected device is the main risk, so keep your device locked. No method of storage or transmission is completely secure, and we cannot guarantee absolute security.

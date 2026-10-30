@@ -34,6 +34,17 @@ final class ProfileStore {
         GoogleAuth.signOut()
     }
 
+    /// Deletes the pilot account: name, photo, home airports, certificate
+    /// line and any sign-in link. The app then asks to set up a new
+    /// account. Flights and aircraft stay on the device until the pilot
+    /// deletes them or the app.
+    func deleteAccount() {
+        signOut()
+        ImageStore.delete(profile.avatarFileName)
+        profile = PilotProfile()
+        UserDefaults.standard.set(false, forKey: "hasCompletedAccountSetup")
+    }
+
     private func save() {
         guard let data = try? JSONEncoder().encode(profile) else { return }
         try? data.write(to: Self.fileURL, options: .atomic)

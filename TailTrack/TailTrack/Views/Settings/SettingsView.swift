@@ -228,7 +228,7 @@ struct SettingsView: View {
                 }
             NavigationLink("Legal") { LegalView() }
             Link(destination: LegalDocuments.websiteURL) {
-                Label("orlandonell.com", systemImage: "globe")
+                Label("tailtrackapp.com", systemImage: "globe")
             }
             Link(destination: URL(string: "mailto:\(LegalDocuments.supportEmail)")!) {
                 Label("Contact support", systemImage: "envelope")

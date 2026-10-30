@@ -15,6 +15,7 @@ struct ProfileView: View {
     @State private var showingTraining = false
     @State private var showingAchievements = false
     @State private var signInErrorMessage: String?
+    @State private var confirmingDelete = false
 
     private var profile: PilotProfile { profileStore.profile }
 
@@ -38,6 +39,20 @@ struct ProfileView: View {
                     trainingCard
                     achievementsCard
                     signInSection
+                    Button("Delete Account", role: .destructive) {
+                        confirmingDelete = true
+                    }
+                    .font(.footnote)
+                    .confirmationDialog("Delete your TailTrack account?",
+                                        isPresented: $confirmingDelete,
+                                        titleVisibility: .visible) {
+                        Button("Delete Account", role: .destructive) {
+                            profileStore.deleteAccount()
+                        }
+                        Button("Cancel", role: .cancel) {}
+                    } message: {
+                        Text("This removes your name, photo, home airports and any Sign in with Apple link from this device. Your logbook and aircraft stay until you delete them.")
+                    }
                 }
                 .padding()
                 .readableContentWidth()
