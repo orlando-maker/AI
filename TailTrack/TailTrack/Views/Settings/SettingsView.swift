@@ -5,6 +5,10 @@ struct SettingsView: View {
     @Environment(ProStore.self) private var pro
 
     @State private var showingPaywall = false
+    /// Hidden hangar: tap the version number seven times.
+    @State private var versionTaps = 0
+    @State private var showingEgg = false
+    @State private var quip = ""
     @AppStorage(AppearanceSetting.storageKey) private var appearanceRaw = AppearanceSetting.system.rawValue
 
     var body: some View {
@@ -136,6 +140,16 @@ struct SettingsView: View {
         }
     }
 
+    private static let quips = [
+        "A good landing is any landing you can walk away from. A great one is when the airplane can fly again.",
+        "Remember: the three most useless things in aviation are altitude above you, runway behind you, and fuel in the truck.",
+        "Takeoffs are optional. Landings are mandatory.",
+        "Aviate, navigate, communicate. In that order.",
+        "Your logbook never lies. Your hobbs meter occasionally does.",
+        "The pattern is full of Cessnas, and one of them is you.",
+        "Always keep your airspeed up, and your sense of humor higher.",
+    ]
+
     /// "1.0 (1)": the version people see, then the build number.
     private static var versionLabel: String {
         let info = Bundle.main.infoDictionary
@@ -147,6 +161,21 @@ struct SettingsView: View {
     private var aboutSection: some View {
         Section {
             LabeledContent("Version", value: Self.versionLabel)
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    versionTaps += 1
+                    if versionTaps >= 7 {
+                        versionTaps = 0
+                        quip = Self.quips.randomElement() ?? Self.quips[0]
+                        showingEgg = true
+                    }
+                }
+                .sensoryFeedback(.success, trigger: showingEgg) { _, shown in shown }
+                .alert("Cleared for takeoff ✈️", isPresented: $showingEgg) {
+                    Button("Roger") {}
+                } message: {
+                    Text("\(quip)\n\nTailTrack was designed and built by a student pilot at KSQL. Blue skies.")
+                }
             NavigationLink("Legal") { LegalView() }
             Link(destination: LegalDocuments.websiteURL) {
                 Label("orlandonell.com", systemImage: "globe")
