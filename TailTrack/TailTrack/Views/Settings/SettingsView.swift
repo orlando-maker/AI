@@ -1,4 +1,5 @@
 import SwiftUI
+import StoreKit
 
 struct SettingsView: View {
     @Environment(AirportStore.self) private var airports
@@ -9,6 +10,10 @@ struct SettingsView: View {
     @State private var versionTaps = 0
     @State private var showingEgg = false
     @State private var quip = ""
+    /// The second, much harder secret: after the first, hold the version.
+    @State private var foundFirstEgg = false
+    @State private var showingSecret = false
+    @State private var redeemingCode = false
     @AppStorage(AppearanceSetting.storageKey) private var appearanceRaw = AppearanceSetting.system.rawValue
 
     var body: some View {
@@ -74,6 +79,11 @@ struct SettingsView: View {
                     Task { await pro.restorePurchases() }
                 }
                 .font(.callout)
+                Button("Redeem Code") {
+                    redeemingCode = true
+                }
+                .font(.callout)
+                .offerCodeRedemption(isPresented: $redeemingCode)
             }
         }
     }
@@ -140,6 +150,41 @@ struct SettingsView: View {
         }
     }
 
+    /// Found by holding the version after the first egg. It doesn't unlock
+    /// anything itself (App Review forbids that); it earns an Apple offer
+    /// code, redeemed through the normal App Store sheet.
+    private var secretHangar: some View {
+        NavigationStack {
+            VStack(spacing: 18) {
+                Image(systemName: "airplane.circle.fill")
+                    .font(.system(size: 64))
+                    .foregroundStyle(Theme.proGold)
+                Text("Secret hangar")
+                    .font(.system(.title, design: .rounded).weight(.heavy))
+                Text("Nobody finds this. You did, and that's exactly the kind of pilot TailTrack is for.\n\nEmail the word FLAPS30 and I'll send you a free Pro offer code.")
+                    .multilineTextAlignment(.center)
+                Link(destination: URL(string: "mailto:\(LegalDocuments.supportEmail)?subject=Cleared%20for%20takeoff&body=FLAPS30")!) {
+                    Label("Email the code word", systemImage: "envelope.fill")
+                        .font(.headline)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 6)
+                }
+                .buttonStyle(.borderedProminent)
+                Button("Got a code? Redeem it") {
+                    showingSecret = false
+                    redeemingCode = true
+                }
+            }
+            .padding(28)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Close") { showingSecret = false }
+                }
+            }
+        }
+        .presentationDetents([.medium])
+    }
+
     private static let quips = [
         "A good landing is any landing you can walk away from. A great one is when the airplane can fly again.",
         "Remember: the three most useless things in aviation are altitude above you, runway behind you, and fuel in the truck.",
@@ -166,11 +211,16 @@ struct SettingsView: View {
                     versionTaps += 1
                     if versionTaps >= 7 {
                         versionTaps = 0
+                        foundFirstEgg = true
                         quip = Self.quips.randomElement() ?? Self.quips[0]
                         showingEgg = true
                     }
                 }
+                .onLongPressGesture(minimumDuration: 3) {
+                    if foundFirstEgg { showingSecret = true }
+                }
                 .sensoryFeedback(.success, trigger: showingEgg) { _, shown in shown }
+                .sheet(isPresented: $showingSecret) { secretHangar }
                 .alert("Cleared for takeoff ✈️", isPresented: $showingEgg) {
                     Button("Roger") {}
                 } message: {

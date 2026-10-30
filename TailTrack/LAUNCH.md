@@ -230,3 +230,23 @@ In `project.yml`, in **both** the TailTrack and TailTrackWidgets targets:
 Then `xcodegen generate`, Archive, Upload, and add the new version in App
 Store Connect with "What's New" text. Settings → About shows
 "version (build)", for example "1.0 (1)".
+
+## Free access and referral codes (offer codes)
+
+Apple's rules (Guideline 3.1.1) don't allow an app to unlock Pro with its
+own secret codes, so use Apple's **offer codes**. The app already has a
+**Redeem Code** button (Settings and the paywall).
+
+1. App Store Connect → your app → **Subscriptions** → pick a plan →
+   **Offer Codes** (or **In-App Purchases → Offer Codes** for Lifetime,
+   if Apple offers it for your product type).
+2. Create an offer: free for a period, or a discount.
+3. Choose **one-time codes** (unique, single use; good for individual
+   referrals) or a **custom code** (one word anyone can use, for example
+   a flight-school promotion).
+4. Send the code to the person. They tap **Redeem Code** in the app, or
+   open the link Apple gives you.
+
+Referral tracking: Apple has no built-in referral program. Make one code
+per referrer and note who got which code. Apple shows how many were
+redeemed.

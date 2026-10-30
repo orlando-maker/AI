@@ -5,6 +5,7 @@ import StoreKit
 struct PaywallView: View {
     @Environment(ProStore.self) private var pro
     @Environment(\.dismiss) private var dismiss
+    @State private var redeemingCode = false
 
     var body: some View {
         NavigationStack {
@@ -175,6 +176,11 @@ struct PaywallView: View {
                 Task { await pro.restorePurchases() }
             }
             .font(.callout)
+            Button("Redeem Code") {
+                redeemingCode = true
+            }
+            .font(.callout)
+            .offerCodeRedemption(isPresented: $redeemingCode)
             HStack(spacing: 14) {
                 NavigationLink("Terms of Service") {
                     LegalDocumentView(title: "Terms of Service",
