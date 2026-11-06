@@ -607,8 +607,12 @@ final class FlightTracker {
             entry.longitude = latest.longitude
             entry.altitudeFt = latest.baroAltitudeFt
         }
-        guard flight != nil else { return }
-        flight?.radioLog = (flight?.radioLog ?? []) + [entry]
+        // Copy, change, write back: reading `flight` inside the assignment
+        // that modifies it is an overlapping access, and Swift stops the
+        // app for it.
+        guard var updated = flight else { return }
+        updated.radioLog = (updated.radioLog ?? []) + [entry]
+        flight = updated
         persistIfLanded()
     }
 
