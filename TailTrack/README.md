@@ -220,7 +220,7 @@ Save one to your camera roll and upload it in the aircraft editor.
 | Source | What | License/terms |
 |---|---|---|
 | [adsb.lol](https://api.adsb.lol) | Live positions, traces, history | Data under the Open Database License (attribution); API may require a feeder key later |
-| [adsb.fi](https://adsb.fi) | **Off by default** | Open-data API is personal, non-commercial use only |
+| [adsb.fi](https://adsb.fi) | **Not used** | Open-data API is personal, non-commercial use only |
 | [OpenSky Network](https://opensky-network.org) | **Not used** | Live use in a commercial product needs a written agreement and license |
 | [OurAirports](https://ourairports.com) | Worldwide airport database | Public domain |
 
@@ -234,8 +234,8 @@ database into the app so worldwide airports work offline on first launch.
 
 **Before App Store release:** TailTrack is a paid app, so it uses
 adsb.lol alone. Email adsb.lol so they know a production app depends on
-their API, and ask adsb.fi for permission. If they agree in writing, flip
-`ADSBClient.adsbFiPermitted` to add it back as a second live source.
+their API. adsb.fi is not used (its terms forbid paid apps); a second
+source would need that network's written permission first.
 
 ## Limitations (honest ones)
 
@@ -265,7 +265,7 @@ TailTrack/
 │   ├── Models/               # Aircraft, Airport, Flight, PilotProfile
 │   ├── Services/
 │   │   ├── NNumber.swift     # N-number ⇄ ICAO hex (offline, unit-tested)
-│   │   ├── ADSBClient.swift  # adsb.lol live/trace/history (adsb.fi behind a permission flag)
+│   │   ├── ADSBClient.swift  # adsb.lol live/trace/history
 │   │   ├── FlightPhaseDetector.swift # pure takeoff/landing/touch-and-go state machine
 │   │   ├── FlightTracker.swift # poll loop, crash recovery, logbook hand-off
 │   │   ├── AirportStore.swift  # starter JSON + OurAirports download/cache

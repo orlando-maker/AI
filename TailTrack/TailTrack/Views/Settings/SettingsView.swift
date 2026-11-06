@@ -137,10 +137,6 @@ struct SettingsView: View {
         Section {
             Link("adsb.lol — community ADS-B network",
                  destination: URL(string: "https://adsb.lol")!)
-            if ADSBClient.adsbFiPermitted {
-                Link("adsb.fi — community ADS-B network",
-                     destination: URL(string: "https://adsb.fi")!)
-            }
             Link("OurAirports",
                  destination: URL(string: "https://ourairports.com")!)
         } header: {

@@ -52,11 +52,9 @@ enum ADSBError: LocalizedError {
 /// Fetches live state from community ADS-B networks.
 ///
 /// Licensing decides the source list. adsb.lol publishes its data under the
-/// Open Database License, which allows a paid app with attribution.
-/// adsb.fi's open-data API is for personal, non-commercial use, and the
-/// OpenSky Network requires a license for live commercial products, so a
-/// paid TailTrack uses adsb.lol alone until another network agrees in
-/// writing. Flip `adsbFiPermitted` once adsb.fi grants permission.
+/// Open Database License, which allows a paid app with attribution. Other
+/// networks (adsb.fi, OpenSky) don't allow a paid app without a written
+/// agreement, so TailTrack uses adsb.lol alone.
 struct ADSBClient {
 
     private let session: URLSession
@@ -119,7 +117,7 @@ struct ADSBClient {
         throw ADSBError.allSourcesFailed(failures.joined(separator: "; "))
     }
 
-    // MARK: - readsb v2 sources (adsb.lol, adsb.fi)
+    // MARK: - readsb v2 source (adsb.lol)
 
     private struct V2Source {
         let name: String
@@ -139,21 +137,10 @@ struct ADSBClient {
         }
     }
 
-    /// Set to true only with adsb.fi's written permission for TailTrack.
-    static let adsbFiPermitted = false
-
-    private static var v2Sources: [V2Source] {
-        var sources = [V2Source(name: "adsb.lol", base: "https://api.adsb.lol/v2")]
-        if adsbFiPermitted {
-            sources.append(V2Source(name: "adsb.fi", base: "https://opendata.adsb.fi/api/v2"))
-        }
-        return sources
-    }
+    private static let v2Sources = [V2Source(name: "adsb.lol", base: "https://api.adsb.lol/v2")]
 
     /// The tar1090 "globe" hosts that serve trace and history files.
-    private static var globeHosts: [String] {
-        adsbFiPermitted ? ["https://globe.adsb.lol", "https://globe.adsb.fi"] : ["https://globe.adsb.lol"]
-    }
+    private static let globeHosts = ["https://globe.adsb.lol"]
 
     private struct V2Response: Decodable {
         let ac: [V2Aircraft]?
